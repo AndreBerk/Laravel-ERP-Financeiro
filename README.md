@@ -1,111 +1,45 @@
-Enterprise Financial Management ERP (Profit First)
+# Sistema de Gestão Financeira e Estratégica (Metodologia Profit First)
 
-Sistema web monolítico de gestão financeira e auditoria, desenvolvido para garantir precisão matemática absoluta e previsibilidade de caixa. A arquitetura foi projetada com base na metodologia de gestão estratégica "Profit First", integrando cálculo contínuo de DRE e auditoria de extratos bancários.
+Sistema web monolítico de gestão financeira empresarial projetado para automação e precisão matemática absoluta. Desenvolvido com Laravel 12, o software executa auditoria de extratos bancários, cálculo contínuo de DRE e aplica a metodologia de gestão financeira por cotas (Profit First).
 
-Arquitetura e Tecnologias
+> **Demonstração em Vídeo:** 
 
-Backend: PHP 8.2+ / Laravel 12
-
-Frontend: Blade Templates / Tailwind CSS / Alpine.js
-
-Banco de Dados: SQLite (Arquitetura local otimizada e livre de corrupções físicas)
-
-Gestão de Ativos: Vite
-
-Módulos Principais
-
-1. Gestão Estratégica por Potes (Profit First)
-
-Motor financeiro responsável pela distribuição inteligente de capital.
-
-Split Automático de Faturamento: Subtração da reserva de investimento e distribuição do saldo remanescente entre os centros de custo (Operação, Reinvestimento, Lucro e Investimento).
-
-Validação de Integridade: Regras de negócio rígidas no backend e frontend que exigem que as porcentagens dos potes e das cotas societárias totalizem exatamente 100,00%.
-
-Gestão de Cofres Virtuais:
-
-Reinvestimento: Ciclo trimestral para acervo, suprimentos e marketing.
-
-Lucro dos Sócios: Simulação e distribuição semestral baseada no quadro societário.
-
-Investimentos (CDI): Cálculo de juros compostos baseado no CDI anual e percentual negociado.
-
-Termômetro de Custos: Algoritmo comparativo de despesas fixas mensais para identificar aumentos operacionais silenciosos.
-
-2. Gestão de Prioridades e Investimentos
-
-Módulo de planejamento integrado ao fluxo de capital da empresa.
-
-Cadastro Estratégico: Registro de demandas categorizadas por prioridade visual, previsão de custo e prazos.
-
-Dashboard Analítico: Exibição dinâmica de valores previstos em aberto, demandas urgentes e capital executado em projetos concluídos.
-
-Cobertura Financeira: Cruzamento em tempo real do saldo real do cofre de Reinvestimento com o total previsto das demandas, indicando superávit ou déficit instantâneo.
-
-Ciclo de Vida de Projetos: Ordenação por urgência, alertas de vencimento e input de "Gasto Real" para comparativo orçado vs. realizado.
-
-3. DRE Contínuo e Previsibilidade
-
-Separação de Receita Real: Isolamento de entradas operacionais reais contra transferências internas ou saldos anteriores.
-
-Previsibilidade de Recebíveis: Cálculo de valores a receber líquidos (maquininhas) descontando a taxa média histórica do período.
-
-Multi-Contas: Acompanhamento consolidado e isolado de contas bancárias.
-
-4. Auditoria e Importação
-
-Multiparser de Extratos: Leitor e interpretador de extratos bancários e relatórios de cartões de crédito (Itaú PJ, Cielo e Rede Itaú).
-
-Trava Anti-Duplicidade: Prevenção no nível da aplicação e do banco de dados contra upload repetido de lotes de arquivos.
-
-Configuração e Instalação Local
-
-Clone o repositório:
-
-git clone https://github.com/seu-utilizador/sistema-financeiro.git
-cd sistema-financeiro
+https://github.com/user-attachments/assets/35e6d786-732f-4402-a020-bd33f0434d67
 
 
-Instale as dependências:
 
-composer install
-npm install
+## Arquitetura e Tecnologias
 
+* **Back-end:** PHP 8.2+ / Laravel 12
+* **Front-end:** Blade Templates / Tailwind CSS / Alpine.js
+* **Banco de Dados:** SQLite (Arquitetura local otimizada e blindada contra corrupções físicas)
+* **Build Tool:** Vite
 
-Configure as variáveis de ambiente:
+## Módulos Principais e Regras de Negócio
 
-cp .env.example .env
+### 1. Gestão Estratégica (Profit First)
+* **Split Automático de Faturamento:** Subtração da reserva de investimento e distribuição automática do montante restante entre os centros de custo configurados (Operação, Reinvestimento, Lucro e Investimento).
+* **Validação de Integridade (Regra de 100%):** Travas de validação no backend e frontend garantindo que a soma percentual das cotas societárias e operacionais seja estritamente igual a 100,00%.
+* **Cofres Virtuais e Simulação Matemática:** 
+  * Reinvestimento: Gestão de ciclo trimestral para acervo e marketing.
+  * Lucro dos Sócios: Simulação e distribuição semestral proporcional ao quadro societário.
+  * Investimento (CDI): Cálculo contínuo de juros compostos baseado no CDI anual e percentual negociado.
+* **Termômetro de Despesas:** Monitoramento e comparação de custos fixos entre períodos para detecção de aumentos operacionais marginais.
 
+### 2. Gestão de Prioridades de Investimento
+Módulo integrado ao cofre de Reinvestimento para planejamento de longo prazo.
+* **Cadastro Estratégico:** Registro de demandas com categorização, matriz de prioridade (Urgente, Importante, Baixa Prioridade), previsão orçamentária e prazos.
+* **Cobertura Financeira Dinâmica:** Algoritmo que cruza o saldo real do cofre de Reinvestimento com o montante exigido pelas demandas cadastradas, gerando projeções em tempo real de superávit ou déficit para a execução dos projetos.
+* **Ciclo de Vida de Projetos:** Controle de status, ordenação inteligente por urgência e geração automática de comparativo entre o valor orçado e o gasto real efetuado.
 
-Certifique-se de configurar a conexão para SQLite no arquivo .env:
+### 3. DRE Contínuo e Fluxo de Caixa
+* **Separação de Receita Real:** Algoritmo de isolamento de entradas operacionais puras (PIX, cartões), separando o "dinheiro novo" de transferências internas ou saldos flutuantes.
+* **Previsibilidade de Recebíveis:** Cálculo de recebíveis líquidos descontando a taxa média de antecipação e administração do período.
+* **Conciliação Multi-Contas:** Monitoramento individual e consolidado de instituições financeiras distintas.
 
-DB_CONNECTION=sqlite
+### 4. Auditoria e Conciliação Automática
+* **Multiparser de Extratos:** Algoritmo de leitura inteligente compatível com múltiplos formatos de extratos bancários e relatórios de operadoras de crédito.
+* **Trava Anti-Duplicidade:** Validação no nível do banco de dados para impedir a importação repetida de um mesmo lote de arquivos, garantindo a integridade absoluta da auditoria financeira.
 
-
-(Caso necessário, crie o arquivo do banco rodando: touch database/database.sqlite no Linux/Mac ou criando um arquivo vazio no Windows).
-
-Gere a chave da aplicação e rode as migrações:
-
-php artisan key:generate
-php artisan migrate:fresh
-
-
-Compile os assets e inicie o servidor:
-
-npm run build
-php artisan serve
-
-
-Execução Desktop (Ambiente Windows)
-
-Para inicializar o sistema como uma aplicação nativa no Windows, crie um arquivo Iniciar_Sistema.bat na Área de Trabalho com o script abaixo (ajuste o caminho do projeto):
-
-@echo off
-cd C:\caminho\para\o\seu\projeto\financeiro
-start /b php artisan serve
-timeout /t 2 >nul
-start chrome --app=http://127.0.0.1:8000
-exit
-
-
-Este projeto possui fins de portfólio e gestão privada. Desenvolvido com foco em alta engenharia de software e eficiência financeira.
+---
+**Licença:** Este projeto é de uso restrito e privado. Desenvolvido com foco em eficiência financeira e engenharia de software de alto nível por André Berkembrock.
