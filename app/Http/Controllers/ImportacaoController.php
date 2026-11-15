@@ -101,6 +101,19 @@ class ImportacaoController extends Controller
         return redirect()->route('importacao.index')->with('status', 'Arquivo e todos os seus registros foram excluídos com sucesso!');
     }
 
+    /** PATCH: categoria manual de um lançamento bancário (JSON, usado pelo select da tela de detalhes). */
+    public function atualizarCategoria(Request $request, int $id)
+    {
+        $linha = Conciliacao::where('origem', 'banco')->findOrFail($id);
+        $d = $request->validate([
+            'categoria' => ['required', 'string', \Illuminate\Validation\Rule::in(Conciliacao::opcoesPlanas($linha->tipo))],
+        ]);
+
+        $linha->forceFill(['categoria' => $d['categoria'], 'categoria_manual' => true])->save();
+
+        return response()->json(['ok' => true, 'categoria' => $linha->categoria]);
+    }
+
     // =========================================================================
     // 🕵️ DETETIVE DE AUDITORIA: Lê a descrição, cruza com a tabela e acha o erro
     // =========================================================================

@@ -57,6 +57,65 @@
                         </button>
                     </div>
                 </form>
+
+                @if($errors->any())
+                    <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 mt-4 text-sm">
+                        @foreach($errors->all() as $erro)<p>{{ $erro }}</p>@endforeach
+                    </div>
+                @endif
+
+                <!-- SALDOS CADASTRADOS -->
+                <h4 class="text-sm font-bold text-gray-700 mt-8 mb-3">Saldos cadastrados</h4>
+                @if($saldos->isEmpty())
+                    <p class="text-sm text-gray-400">Nenhum saldo inicial cadastrado ainda.</p>
+                @else
+                    <div class="overflow-x-auto border border-gray-100 rounded-lg">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                                <tr>
+                                    <th class="px-4 py-2 text-left">Conta</th>
+                                    <th class="px-4 py-2 text-left">Mês/Ano</th>
+                                    <th class="px-4 py-2 text-right">Saldo</th>
+                                    <th class="px-4 py-2 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach($saldos as $saldo)
+                                    <tr x-data="{ editando: false }">
+                                        <!-- Visualização -->
+                                        <td x-show="!editando" class="px-4 py-2 font-medium text-gray-800">{{ $contas[$saldo->conta_instituicao] ?? ucfirst($saldo->conta_instituicao) }}</td>
+                                        <td x-show="!editando" class="px-4 py-2 text-gray-600">{{ str_pad($saldo->mes_referencia, 2, '0', STR_PAD_LEFT) }}/{{ $saldo->ano_referencia }}</td>
+                                        <td x-show="!editando" class="px-4 py-2 text-right font-semibold {{ $saldo->valor < 0 ? 'text-red-600' : 'text-gray-800' }}">R$ {{ number_format($saldo->valor, 2, ',', '.') }}</td>
+                                        <td x-show="!editando" class="px-4 py-2 text-right whitespace-nowrap">
+                                            <button type="button" @click="editando = true" class="text-blue-600 hover:text-blue-800 font-semibold mr-3">Alterar</button>
+                                            <form action="{{ route('configuracoes.saldo.excluir', $saldo) }}" method="POST" class="inline" onsubmit="return confirm('Excluir o saldo inicial de {{ str_pad($saldo->mes_referencia, 2, '0', STR_PAD_LEFT) }}/{{ $saldo->ano_referencia }}?')">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-800 font-semibold">Excluir</button>
+                                            </form>
+                                        </td>
+
+                                        <!-- Edição -->
+                                        <td x-show="editando" x-cloak colspan="4" class="px-4 py-3 bg-blue-50/40">
+                                            <form action="{{ route('configuracoes.saldo.atualizar', $saldo) }}" method="POST" class="flex flex-wrap gap-3 items-end">
+                                                @csrf @method('PUT')
+                                                <select name="conta_instituicao" class="rounded-md border-gray-300 text-sm">
+                                                    @foreach($contas as $valor => $rotulo)
+                                                        <option value="{{ $valor }}" @selected($saldo->conta_instituicao === $valor)>{{ $rotulo }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <input type="number" name="mes_referencia" value="{{ $saldo->mes_referencia }}" min="1" max="12" required class="w-20 rounded-md border-gray-300 text-sm">
+                                                <input type="number" name="ano_referencia" value="{{ $saldo->ano_referencia }}" required class="w-24 rounded-md border-gray-300 text-sm">
+                                                <input type="text" name="valor" value="{{ number_format($saldo->valor, 2, ',', '.') }}" required class="w-36 rounded-md border-gray-300 text-sm">
+                                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm">Salvar</button>
+                                                <button type="button" @click="editando = false" class="text-gray-500 hover:text-gray-700 text-sm">Cancelar</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">

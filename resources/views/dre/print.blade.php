@@ -60,8 +60,15 @@
                     ['1. Dinheiro novo (entradas)', 'receitaCaixa', $totais['receitaCaixa'], 'text-green-800 font-bold', false],
                     ['   Maquininha depositada', 'maquininhaNoBanco', $totais['maquininhaNoBanco'], 'text-gray-700', false],
                     ['   PIX e outros', 'pixOutros', $totais['pixOutros'], 'text-gray-700', false],
-                    ['2. Saídas (despesas) (-)', 'saidasBanco', $totais['saidasBanco'], 'text-red-800', false],
-                    ['3. RESULTADO LÍQUIDO', 'lucroLiquido', $totais['lucroLiquido'], 'bg-black text-white font-black', false],
+                    ['2. Despesas operacionais (-)', 'saidasBanco', $totais['saidasBanco'], 'text-red-800', false],
+                    ['3. RESULTADO OPERACIONAL', 'resultadoOperacional', $totais['resultadoOperacional'], 'bg-gray-800 text-white font-black', false],
+                ]],
+                ['titulo' => 'Destinações aos potes (não são despesa)', 'cabecalho' => 'bg-amber-100 text-amber-900', 'linhas' => [
+                    ['   Lucro distribuído aos sócios', 'destLucro', $totais['destLucro'], 'text-gray-700', false],
+                    ['   Reinvestimento no negócio', 'destReinvestimento', $totais['destReinvestimento'], 'text-gray-700', false],
+                    ['   Reserva / investimento (líq.)', 'destInvestimento', $totais['destInvestimento'], 'text-gray-700', false],
+                    ['4. Total destinado (-)', 'totalDestinacoes', $totais['totalDestinacoes'], 'text-amber-900 font-bold', false],
+                    ['5. RESULTADO LÍQUIDO DE CAIXA', 'lucroLiquido', $totais['lucroLiquido'], 'bg-black text-white font-black', false],
                 ]],
                 ['titulo' => 'Saldo total em conta (Bradesco + Itaú)', 'cabecalho' => 'bg-gray-300 text-gray-900', 'linhas' => [
                     ['Saldo inicial', 'saldoInicialTotal', null, 'text-gray-500', false],
@@ -182,7 +189,7 @@
                     <tr><td class="px-6 py-1 text-gray-700">- PIX e outras entradas</td><td class="px-4 py-1 text-gray-600 text-right">R$ {{ $fmt($pixOutros) }}</td></tr>
 
                     <tr class="bg-gray-100 border-t border-gray-300">
-                        <td class="px-4 py-2 font-bold text-gray-800">2. SAÍDAS DE CAIXA (CATEGORIAS)</td>
+                        <td class="px-4 py-2 font-bold text-gray-800">2. DESPESAS OPERACIONAIS (CATEGORIAS)</td>
                         <td class="px-4 py-2 font-bold text-gray-800 text-right">- R$ {{ $fmt($saidasBanco) }}</td>
                     </tr>
                     @forelse($categoriasDespesas as $despesa)
@@ -194,8 +201,20 @@
                         <tr><td colspan="2" class="px-6 py-2 text-gray-400 text-[10px] italic">Nenhuma despesa registrada.</td></tr>
                     @endforelse
 
+                    <tr class="bg-gray-800 text-white border-t-2 border-black">
+                        <td class="px-4 py-2 font-black uppercase">3. Resultado operacional (1 − 2) &middot; {{ number_format($margemOperacional, 1, ',', '.') }}%</td>
+                        <td class="px-4 py-2 font-black text-right">R$ {{ $fmt($resultadoOperacional) }}</td>
+                    </tr>
+                    <tr class="bg-gray-100 border-t border-gray-300">
+                        <td class="px-4 py-2 font-bold text-gray-800">4. DESTINAÇÕES AOS POTES (NÃO É DESPESA)</td>
+                        <td class="px-4 py-2 font-bold text-gray-800 text-right">- R$ {{ $fmt($totalDestinacoes) }}</td>
+                    </tr>
+                    <tr><td class="px-6 py-1 text-gray-700">- Lucro distribuído aos sócios</td><td class="px-4 py-1 text-gray-600 text-right">R$ {{ $fmt($destLucro) }}</td></tr>
+                    <tr><td class="px-6 py-1 text-gray-700">- Reinvestimento no negócio</td><td class="px-4 py-1 text-gray-600 text-right">R$ {{ $fmt($destReinvestimento) }}</td></tr>
+                    <tr><td class="px-6 py-1 text-gray-700">- Reserva / investimento (aplicações − resgates)</td><td class="px-4 py-1 text-gray-600 text-right">R$ {{ $fmt($destInvestimento) }}</td></tr>
+
                     <tr class="bg-black text-white border-t-2 border-black">
-                        <td class="px-4 py-3 font-black uppercase">3. Resultado líquido geral (1 - 2)</td>
+                        <td class="px-4 py-3 font-black uppercase">5. Resultado líquido de caixa (3 − 4)</td>
                         <td class="px-4 py-3 font-black text-base text-right">R$ {{ $fmt($lucroLiquido) }}</td>
                     </tr>
                 </tbody>

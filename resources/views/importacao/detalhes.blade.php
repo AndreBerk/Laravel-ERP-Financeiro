@@ -155,7 +155,7 @@
                     @endif
 
                     @if(!$isMaquininha && !$isRecebimento)
-                        <th class="px-6 py-3 text-center">Tipo</th>
+                        <th class="px-6 py-3">Categoria</th>
                     @endif
 
                     <th class="px-6 py-3 text-right">Valor Líquido Depositado</th>
@@ -230,12 +230,35 @@
                         @endif
 
                         @if(!$isMaquininha && !$isRecebimento)
-                            <td class="px-6 py-4 text-center">
-                                @if($transaction->tipo === 'entrada')
-                                    <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Entrada</span>
-                                @else
-                                    <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Saída</span>
-                                @endif
+                            @php
+                                $grupos = \App\Models\Conciliacao::OPCOES[$transaction->tipo] ?? [];
+                                $oficiais = \App\Models\Conciliacao::opcoesPlanas($transaction->tipo);
+                                $atual = (string) $transaction->categoria;
+                            @endphp
+                            <td class="px-6 py-3"
+                                x-data="categoriaLinha({{ $transaction->id }}, @js($atual), @js($grupos['Potes'] ?? []), {{ $transaction->categoria_manual ? 'true' : 'false' }})">
+                                <div class="flex items-center gap-2">
+                                    <select x-model="valor" @change="salvar()" :disabled="salvando"
+                                            aria-label="Categoria do lançamento"
+                                            :class="ehPote ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-gray-300 bg-white text-gray-800'"
+                                            class="w-56 rounded-md py-1.5 pl-2.5 pr-8 text-xs font-medium shadow-sm transition focus:border-gray-500 focus:ring-2 focus:ring-gray-300 disabled:opacity-60">
+                                        @if($atual !== '' && !in_array($atual, $oficiais, true))
+                                            <option value="{{ $atual }}" disabled>{{ $atual }} (automática)</option>
+                                        @endif
+                                        @foreach($grupos as $grupo => $opcoes)
+                                            <optgroup label="{{ $grupo }}">
+                                                @foreach($opcoes as $op)
+                                                    <option value="{{ $op }}">{{ $op }}</option>
+                                                @endforeach
+                                            </optgroup>
+                                        @endforeach
+                                    </select>
+                                    <span class="w-4 shrink-0" aria-live="polite">
+                                        <svg x-show="status === 'ok'" x-transition.opacity.duration.300ms class="h-4 w-4 text-green-600" viewBox="0 0 20 20" fill="currentColor" aria-label="Salvo"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+                                        <svg x-show="status === 'erro'" class="h-4 w-4 text-red-600" viewBox="0 0 20 20" fill="currentColor" aria-label="Erro ao salvar"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9 6a1 1 0 112 0v4a1 1 0 11-2 0V6zm1 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                                        <span x-show="status === '' && manual" class="block h-1.5 w-1.5 rounded-full bg-gray-400" title="Categoria definida manualmente"></span>
+                                    </span>
+                                </div>
                             </td>
                         @endif
 
@@ -258,3 +281,36 @@
         </table>
     </div>
 </div>
+
+@once
+<script>
+    // Select de categoria: salva via PATCH sem recarregar a página
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('categoriaLinha', (id, inicial, potes, manual) => ({
+            valor: inicial, salvo: inicial, potes, manual, salvando: false, status: '', timer: null,
+            get ehPote() { return this.potes.includes(this.valor); },
+            async salvar() {
+                this.salvando = true; this.status = '';
+                try {
+                    const r = await fetch(`{{ url('/importacao/conciliacao') }}/${id}/categoria`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json', 'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        },
+                        body: JSON.stringify({ categoria: this.valor }),
+                    });
+                    if (!r.ok) throw new Error(r.status);
+                    this.salvo = this.valor; this.manual = true; this.status = 'ok';
+                } catch (e) {
+                    this.valor = this.salvo; this.status = 'erro';
+                } finally {
+                    this.salvando = false;
+                    clearTimeout(this.timer);
+                    this.timer = setTimeout(() => this.status = '', 2500);
+                }
+            },
+        }));
+    });
+</script>
+@endonce

@@ -366,10 +366,48 @@
                             <input type="number" step="0.01" min="0" name="pct_do_cdi" value="{{ $config->pct_do_cdi }}" class="{{ $input }}">
                         </div>
                     </div>
+
+                    {{-- Palavras-chave que identificam, no extrato, as saídas para cada pote --}}
+                    <div class="border-t pt-5">
+                        <h4 class="font-bold text-sm uppercase text-gray-500 mb-1">Identificação automática no extrato</h4>
+                        <p class="text-xs text-gray-500 mb-4">
+                            Ao importar um extrato, toda <strong>saída</strong> cuja descrição contenha uma destas palavras vai para o pote correspondente
+                            e deixa de contar como despesa no DRE. Separe por vírgula. Maiúsculas e acentos são ignorados.
+                            <span class="text-red-600">Não use para pró-labore: ele é despesa operacional.</span>
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            @foreach([
+                                'chaves_lucro' => ['Lucro dos sócios', \App\Models\Conciliacao::POTE_LUCRO, 'border-amber-300 bg-amber-50 text-amber-800', 'PIX JOAO SILVA, DIVIDENDOS'],
+                                'chaves_reinvestimento' => ['Reinvestimento', \App\Models\Conciliacao::POTE_REINVESTIMENTO, 'border-sky-300 bg-sky-50 text-sky-800', 'MAQUINAS LTDA, REFORMA'],
+                                'chaves_investimento' => ['Investimento / reserva', \App\Models\Conciliacao::POTE_INVESTIMENTO, 'border-emerald-300 bg-emerald-50 text-emerald-800', 'APLICACAO, CDB, INVEST FACIL'],
+                            ] as $campo => [$titulo, $categoria, $cor, $exemplo])
+                                <div class="rounded-lg border p-3 {{ $cor }}">
+                                    <label class="text-xs font-bold">{{ $titulo }}</label>
+                                    <textarea name="{{ $campo }}" rows="3" placeholder="Ex.: {{ $exemplo }}"
+                                              class="mt-1 w-full border-gray-300 rounded text-sm shadow-sm bg-white text-gray-800 uppercase">{{ old($campo, $config->$campo) }}</textarea>
+                                    <p class="text-[11px] mt-1 opacity-80">Categoria aplicada: <strong>{{ $categoria }}</strong></p>
+                                </div>
+                            @endforeach
+                        </div>
+                        <p class="text-[11px] text-gray-400 mt-2">Vale para os próximos extratos importados. Para aplicar aos extratos já importados, salve e use o botão "Reclassificar extratos" abaixo.</p>
+                    </div>
+
                     <div class="flex justify-end">
                         <button class="bg-gray-800 hover:bg-black text-white px-6 py-2 rounded font-bold disabled:opacity-40"
                                 :disabled="Math.abs(p.reduce((a,b)=>a+(+b||0),0)-100) >= 0.005 || Math.abs(c.reduce((a,b)=>a+(+b||0),0)-100) >= 0.005">Salvar (exige 100%)</button>
                     </div>
+                </form>
+
+                {{-- Reaplica as palavras-chave salvas aos extratos já importados (form separado: forms não podem ser aninhados) --}}
+                <form action="{{ route('potes.reclassificar') }}" method="POST"
+                      onsubmit="return confirm('Reaplicar as palavras-chave SALVAS a todos os extratos bancários já importados?\n\nSó lançamentos com categoria automática serão alterados. Salve as configurações antes, se mudou alguma palavra.')"
+                      class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-indigo-300 bg-indigo-50 p-4">
+                    @csrf
+                    <div>
+                        <p class="text-sm font-bold text-indigo-900">🔄 Reclassificar extratos já importados</p>
+                        <p class="text-xs text-indigo-700">Aplica as palavras-chave salvas a todos os lançamentos bancários antigos, para o DRE separar despesas de potes também nos meses passados.</p>
+                    </div>
+                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded font-bold text-sm shadow">Reclassificar extratos</button>
                 </form>
             </div>
 

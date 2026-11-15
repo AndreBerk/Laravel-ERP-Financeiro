@@ -68,8 +68,15 @@
                             ['1. Dinheiro novo (entradas)', 'receitaCaixa', $totais['receitaCaixa'], 'text-green-800 font-bold', false],
                             ['   Maquininha depositada', 'maquininhaNoBanco', $totais['maquininhaNoBanco'], 'text-gray-600', false],
                             ['   PIX e outros', 'pixOutros', $totais['pixOutros'], 'text-gray-600', false],
-                            ['2. Saídas (despesas) (-)', 'saidasBanco', $totais['saidasBanco'], 'text-red-700', false],
-                            ['3. RESULTADO LÍQUIDO', 'lucroLiquido', $totais['lucroLiquido'], 'font-black', true],
+                            ['2. Despesas operacionais (-)', 'saidasBanco', $totais['saidasBanco'], 'text-red-700', false],
+                            ['3. RESULTADO OPERACIONAL', 'resultadoOperacional', $totais['resultadoOperacional'], 'font-black', true],
+                        ]],
+                        ['titulo' => 'DESTINAÇÕES AOS POTES (NÃO SÃO DESPESA)', 'cabecalho' => 'bg-amber-100 text-amber-900 border-amber-200', 'linhas' => [
+                            ['   Lucro distribuído aos sócios', 'destLucro', $totais['destLucro'], 'text-amber-700', false],
+                            ['   Reinvestimento no negócio', 'destReinvestimento', $totais['destReinvestimento'], 'text-sky-700', false],
+                            ['   Reserva / investimento (líq.)', 'destInvestimento', $totais['destInvestimento'], 'text-emerald-700', false],
+                            ['4. Total destinado (-)', 'totalDestinacoes', $totais['totalDestinacoes'], 'text-amber-900 font-bold', false],
+                            ['5. RESULTADO LÍQUIDO DE CAIXA', 'lucroLiquido', $totais['lucroLiquido'], 'font-black', true],
                         ]],
                         ['titulo' => 'SALDO TOTAL EM CONTA (BRADESCO + ITAÚ)', 'cabecalho' => 'bg-gray-200 text-gray-900 border-gray-300', 'linhas' => [
                             ['Saldo inicial', 'saldoInicialTotal', null, 'text-gray-500', false],
@@ -126,6 +133,8 @@
                     </div>
                     <p class="px-4 py-3 text-[11px] text-gray-500 border-t border-gray-100">
                         Dinheiro novo = entradas reais nos extratos (PIX + depósitos da maquininha), sem saldo anterior e sem transferências entre contas próprias.
+                        Resultado operacional = dinheiro novo − despesas reais (margem no ano: {{ number_format($totais['margemOperacional'], 1, ',', '.') }}%).
+                        Destinações aos potes ficam abaixo dele, pois não são custo do negócio.
                         "A receber" considera as vendas do ano ainda não depositadas.
                     </p>
                 </div>
@@ -280,8 +289,34 @@
                 <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-visible">
                     <div class="bg-gray-800 px-6 py-4 flex justify-between items-center rounded-t-lg">
                         <h3 class="text-lg font-bold text-white">Demonstrativo de fluxo de caixa: {{ $nomesMeses[$mes] }}/{{ $ano }}</h3>
-                        <span class="text-xs text-gray-300">Margem: {{ number_format($margemLucro, 1, ',', '.') }}%</span>
+                        <span class="text-xs text-gray-300">Margem operacional {{ number_format($margemOperacional, 1, ',', '.') }}% &middot; líquida {{ number_format($margemLucro, 1, ',', '.') }}%</span>
                     </div>
+
+                    @php
+                        $base = max($receitaCaixa, 0.01);
+                        $barra = [
+                            ['Despesas', 'bg-red-400', max(0, $saidasBanco)],
+                            ['Lucro sócios', 'bg-amber-500', max(0, $destLucro)],
+                            ['Reinvestimento', 'bg-sky-500', max(0, $destReinvestimento)],
+                            ['Reserva', 'bg-emerald-500', max(0, $destInvestimento)],
+                            ['Sobra em caixa', 'bg-gray-300', max(0, $lucroLiquido)],
+                        ];
+                    @endphp
+                    @if($receitaCaixa > 0)
+                        <div class="px-6 pt-5">
+                            <p class="text-[11px] font-bold text-gray-500 uppercase mb-2">Para onde foi o dinheiro novo</p>
+                            <div class="w-full h-4 rounded-full bg-gray-100 overflow-hidden flex">
+                                @foreach($barra as [$rot, $cor, $v])
+                                    <div class="{{ $cor }} h-4" style="width: {{ number_format(min(100, $v / $base * 100), 2, '.', '') }}%" title="{{ $rot }}: R$ {{ $fmt($v) }}"></div>
+                                @endforeach
+                            </div>
+                            <div class="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-xs text-gray-600">
+                                @foreach($barra as [$rot, $cor, $v])
+                                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full {{ $cor }}"></span>{{ $rot }} {{ number_format($v / $base * 100, 0) }}%</span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
 
                     <table class="w-full text-sm text-left">
                         <tbody class="divide-y divide-gray-100">
@@ -299,7 +334,7 @@
                             </tr>
 
                             <tr class="bg-red-50/30 border-t-2 border-gray-100">
-                                <td class="px-6 py-4 font-bold text-gray-800">2. SAÍDAS DE CAIXA (POR CATEGORIA)</td>
+                                <td class="px-6 py-4 font-bold text-gray-800">2. DESPESAS OPERACIONAIS (POR CATEGORIA)</td>
                                 <td class="px-6 py-4 font-bold text-red-600 text-right">- R$ {{ $fmt($saidasBanco) }}</td>
                             </tr>
                             @forelse($categoriasDespesas as $despesa)
@@ -311,12 +346,61 @@
                                 <tr><td colspan="2" class="px-8 py-3 text-gray-400 text-xs italic">Nenhuma despesa registrada neste período.</td></tr>
                             @endforelse
 
+                            <tr class="bg-emerald-900 text-white border-t-2 border-black">
+                                <td class="px-6 py-4 font-bold text-base uppercase">3. Resultado operacional (1 − 2)</td>
+                                <td class="px-6 py-4 font-black text-lg text-right {{ $resultadoOperacional >= 0 ? 'text-green-300' : 'text-red-300' }}">R$ {{ $fmt($resultadoOperacional) }}</td>
+                            </tr>
+
+                            <tr class="bg-amber-50 border-t-2 border-amber-200">
+                                <td class="px-6 py-4 font-bold text-amber-900">4. DESTINAÇÕES AOS POTES <span class="ml-1 text-[10px] font-semibold bg-amber-200 text-amber-900 rounded px-1.5 py-0.5">não é despesa</span></td>
+                                <td class="px-6 py-4 font-bold text-amber-800 text-right">- R$ {{ $fmt($totalDestinacoes) }}</td>
+                            </tr>
+                            @foreach([
+                                ['Lucro distribuído aos sócios', 'bg-amber-500', $destLucro],
+                                ['Reinvestimento no negócio', 'bg-sky-500', $destReinvestimento],
+                                ['Reserva / investimento (aplicações − resgates)', 'bg-emerald-500', $destInvestimento],
+                            ] as [$rot, $cor, $v])
+                                <tr class="bg-amber-50/40">
+                                    <td class="px-8 py-2.5 text-gray-700 font-medium"><span class="inline-block w-2.5 h-2.5 rounded-full {{ $cor }} mr-2"></span>{{ $rot }}</td>
+                                    <td class="px-6 py-2.5 text-gray-600 text-right">R$ {{ $fmt($v) }}</td>
+                                </tr>
+                            @endforeach
+
                             <tr class="bg-gray-800 text-white border-t-2 border-black">
-                                <td class="px-6 py-5 font-bold text-lg uppercase">3. Resultado líquido no mês (1 - 2)</td>
+                                <td class="px-6 py-5 font-bold text-lg uppercase">5. Resultado líquido de caixa (3 − 4)</td>
                                 <td class="px-6 py-5 font-bold text-lg text-right {{ $lucroLiquido >= 0 ? 'text-green-400' : 'text-red-400' }}">R$ {{ $fmt($lucroLiquido) }}</td>
                             </tr>
                         </tbody>
                     </table>
+
+                    <!-- Conferência: extrato x módulo de Potes -->
+                    <div class="px-6 py-5 border-t border-gray-100">
+                        <p class="text-[11px] font-bold text-gray-500 uppercase mb-3">Conferência com o módulo de Potes</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            @foreach(['lucro' => ['Lucro', 'border-amber-300', 'Retiradas registradas'], 'reinvestimento' => ['Reinvestimento', 'border-sky-300', 'Retiradas registradas'], 'investimento' => ['Investimento', 'border-emerald-300', 'Aporte − retiradas']] as $p => [$nome, $borda, $rotReg])
+                                @php $c = $conferenciaPotes[$p]; @endphp
+                                <div class="rounded-lg border {{ $borda }} bg-white p-3 text-xs space-y-1 tabular-nums">
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-bold text-gray-800 text-sm">{{ $nome }}</span>
+                                        @if($c['diverge'])
+                                            <span class="bg-red-100 text-red-700 font-bold rounded px-1.5 py-0.5">diverge</span>
+                                        @else
+                                            <span class="bg-green-100 text-green-700 font-bold rounded px-1.5 py-0.5">ok</span>
+                                        @endif
+                                    </div>
+                                    <div class="flex justify-between text-gray-500"><span>Planejado (divisão)</span><span>R$ {{ $fmt($c['planejado']) }}</span></div>
+                                    <div class="flex justify-between text-gray-600"><span>{{ $rotReg }}</span><span>R$ {{ $fmt($c['registrado']) }}</span></div>
+                                    <div class="flex justify-between font-bold text-gray-800"><span>Identificado no extrato</span><span>R$ {{ $fmt($c['extrato']) }}</span></div>
+                                    @if($p === 'reinvestimento' && $prioridadesConcluidas > 0)
+                                        <div class="flex justify-between text-sky-700"><span>Prioridades concluídas</span><span>R$ {{ $fmt($prioridadesConcluidas) }}</span></div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                        @if(collect($conferenciaPotes)->contains('diverge', true))
+                            <p class="text-[11px] text-red-600 mt-2">Há diferença entre o que foi registrado nos Potes e o que o extrato identificou. Confira as palavras-chave em Despesas → Configurações: retiradas não reconhecidas continuam contando como "Outras Despesas".</p>
+                        @endif
+                    </div>
                     @if($transferenciasInternas > 0)
                         <p class="px-6 py-3 text-[11px] text-gray-400 border-t border-gray-100">
                             R$ {{ $fmt($transferenciasInternas) }} em transferências internas / aplicações ficaram fora do DRE (não são receita nem despesa).

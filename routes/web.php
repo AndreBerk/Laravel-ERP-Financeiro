@@ -37,6 +37,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // ==========================================
     Route::prefix('despesas/potes')->group(function () {
         Route::post('config', [\App\Http\Controllers\DespesaController::class, 'salvarConfiguracaoPotes'])->name('potes.configuracao');
+        Route::post('reclassificar', [\App\Http\Controllers\DespesaController::class, 'reclassificarExtratos'])->name('potes.reclassificar');
         Route::post('faturamento', [\App\Http\Controllers\DespesaController::class, 'salvarFaturamentoPotes'])->name('potes.faturamento');
         Route::post('despesa', [\App\Http\Controllers\DespesaController::class, 'salvarDespesaPotes'])->name('potes.despesa');
         Route::post('despesa/copiar-fixas', [\App\Http\Controllers\DespesaController::class, 'copiarFixas'])->name('potes.fixas.copiar'); // NOVA ROTA
@@ -55,6 +56,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/importacao', [ImportacaoController::class, 'index'])->name('importacao.index');
     Route::post('/importacao/upload', [ImportacaoController::class, 'upload'])->name('importacao.upload');
     Route::delete('/importacao/excluir', [ImportacaoController::class, 'destroy'])->name('importacao.destroy');
+    Route::patch('/importacao/conciliacao/{id}/categoria', [ImportacaoController::class, 'atualizarCategoria'])->whereNumber('id')->name('importacao.categoria');
 
     // ==========================================
     // MÓDULO DO DRE
@@ -67,6 +69,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // ==========================================
     Route::get('/configuracoes', [ConfiguracaoController::class, 'index'])->name('configuracoes.index');
     Route::post('/configuracoes/saldo', [ConfiguracaoController::class, 'salvarSaldoInicial'])->name('configuracoes.saldo.salvar');
+    Route::put('/configuracoes/saldo/{saldo}', [ConfiguracaoController::class, 'atualizarSaldoInicial'])->name('configuracoes.saldo.atualizar');
+    Route::delete('/configuracoes/saldo/{saldo}', [ConfiguracaoController::class, 'excluirSaldoInicial'])->name('configuracoes.saldo.excluir');
 
     // Rota que a barra lateral espera encontrar:
     Route::get('/taxas', [TaxaController::class, 'index'])->name('taxas.index');
