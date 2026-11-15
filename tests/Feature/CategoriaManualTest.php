@@ -19,6 +19,7 @@ class CategoriaManualTest extends TestCase
     {
         parent::setUp();
         $this->user = User::factory()->create();
+        // Palavras-chave salvas não devem mais influenciar a importação
         (new PoteConfiguracao())->forceFill(['chaves_lucro' => 'PIX JOAO', 'chaves_investimento' => 'INVESTIMENTOS'])->save();
 
         $csv = "Data,Lançamento,Razão Social,CNPJ,Valor\n"
@@ -49,12 +50,13 @@ class CategoriaManualTest extends TestCase
     {
         $this->assertSame('PIX', $this->linha('CLIENTE A')->categoria);
         $this->assertSame('Recebidos', $this->linha('CLIENTE B')->categoria);
-        $this->assertSame(Conciliacao::POTE_LUCRO, $this->linha('JOAO')->categoria);
-        // falso positivo da palavra-chave: fornecedor "INVESTIMENTOS SA"
-        $this->assertSame(Conciliacao::POTE_INVESTIMENTO, $this->linha('ALFA')->categoria);
+        // Potes nunca são adivinhados: saídas entram como despesa padrão até o usuário reclassificar
+        $this->assertSame('Outras Despesas', $this->linha('JOAO')->categoria);
+        $this->assertSame('Outras Despesas', $this->linha('ALFA')->categoria);
+        $this->assertFalse($this->linha('JOAO')->categoria_manual);
     }
 
-    public function test_patch_corrige_falso_positivo_e_marca_manual(): void
+    public function test_patch_muda_categoria_e_marca_manual(): void
     {
         $l = $this->linha('ALFA');
         $this->mudarCategoria($l, 'Despesas variáveis')->assertOk()->assertJson(['ok' => true, 'categoria' => 'Despesas variáveis']);
@@ -63,9 +65,8 @@ class CategoriaManualTest extends TestCase
         $this->assertSame('Despesas variáveis', $l->categoria);
         $this->assertTrue($l->categoria_manual);
 
-        // reclassificação automática não desfaz a escolha manual
-        app(LeitorArquivoService::class)->reclassificarExtratos();
-        $this->assertSame('Despesas variáveis', $l->fresh()->categoria);
+        $this->mudarCategoria($this->linha('JOAO'), Conciliacao::POTE_LUCRO)->assertOk();
+        $this->assertSame(Conciliacao::POTE_LUCRO, $this->linha('JOAO')->categoria);
     }
 
     public function test_patch_rejeita_categoria_de_outro_tipo_e_desconhecida(): void
@@ -92,6 +93,7 @@ class CategoriaManualTest extends TestCase
     {
         $this->mudarCategoria($this->linha('ALFA'), 'Despesas variáveis')->assertOk();
         $this->mudarCategoria($this->linha('ALUGUEL'), 'Despesas fixas')->assertOk();
+        $this->mudarCategoria($this->linha('JOAO'), Conciliacao::POTE_LUCRO)->assertOk();
         Conciliacao::create(['origem' => 'banco', 'conta_instituicao' => 'itau', 'mes_referencia' => 3, 'ano_referencia' => 2026,
             'data_transacao' => '2026-03-11', 'descricao' => 'LEGADO', 'tipo' => 'saida', 'valor' => 100, 'categoria' => 'Aporte Investimento']);
 

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Conciliacao;
-use App\Models\PoteConfiguracao;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 
@@ -25,109 +24,27 @@ class LeitorArquivoService
         'Resgate Investimento' => 'investimento',
     ];
 
-    /** "pix joão , Dividendos,," -> ['PIX JOAO', 'DIVIDENDOS'] */
-    public static function listaChaves(?string $texto): array
-    {
-        $chaves = array_map(fn ($c) => Str::upper(Str::ascii(trim($c))), explode(',', (string) $texto));
-        return array_values(array_unique(array_filter($chaves, fn ($c) => mb_strlen($c) >= 3)));
-    }
-
-    /** Palavras-chave configuradas na aba Configurações dos Potes, por pote. */
-    private function chavesPotes(): array
-    {
-        $config = PoteConfiguracao::first();
-        $chaves = [];
-        foreach (array_keys(self::CATEGORIAS_POTES) as $pote) {
-            $chaves[$pote] = self::listaChaves($config?->{'chaves_' . $pote});
-        }
-        return $chaves;
-    }
-
     /**
-     * Pote cuja palavra-chave aparece na descrição, ou null.
-     * Chave com várias palavras casa quando TODAS aparecem, em qualquer ordem
-     * ("PIX JOAO" casa com "PIX ENVIADO - JOAO SILVA").
+     * Categoria inicial de cada linha importada, por regras fixas e simples.
+     * Potes (lucro, reinvestimento, investimento) NÃO são adivinhados: o usuário escolhe
+     * a categoria certa na tela de Detalhes da importação (categoria_manual).
      */
-    private function identificarPote(string $descricao, array $chavesPotes): ?string
+    private function categorizar(string $tipo, string $descricao): string
     {
-        $desc = Str::upper(Str::ascii($descricao));
-        foreach ($chavesPotes as $pote => $chaves) {
-            foreach ($chaves as $chave) {
-                $palavras = preg_split('/\s+/', $chave, -1, PREG_SPLIT_NO_EMPTY);
-                $todas = true;
-                foreach ($palavras as $palavra) {
-                    if (!str_contains($desc, $palavra)) {
-                        $todas = false;
-                        break;
-                    }
-                }
-                if ($todas && $palavras) {
-                    return $pote;
-                }
-            }
-        }
-        return null;
-    }
-
-    /** Regra única de categoria automática (usada na importação e na reclassificação). */
-    private function categorizar(string $origem, string $tipo, string $descricao, array $chavesPotes): string
-    {
-        $pote = $origem === 'banco' ? $this->identificarPote($descricao, $chavesPotes) : null;
-
-        if ($pote !== null && $tipo === 'saida') {
-            return self::CATEGORIAS_POTES[$pote];          // saída para um pote: destinação, não despesa
-        }
-        if ($pote === 'investimento' && $tipo === 'entrada') {
-            return self::CATEGORIA_RESGATE;                 // dinheiro voltando da aplicação: não é venda
-        }
         if ($tipo === 'entrada') {
             return str_contains($descricao, 'PIX') ? 'PIX' : 'Recebidos';
         }
-        if (str_contains($descricao, 'TARIFA') || str_contains($descricao, 'MENSALIDADE')) {
+        if (preg_match('/\b(TARIFA|TAR|MENSALIDADE|CESTA)\b/', $descricao)) {
             return 'Despesas Bancárias';
         }
-        if (str_contains($descricao, 'IMPOSTO') || str_contains($descricao, 'DAS') || str_contains($descricao, 'DARF')) {
+        if (preg_match('/\b(IMPOSTO|DAS|DARF|GPS|FGTS)\b/', $descricao)) {
             return 'Impostos';
         }
         return 'Outras Despesas';
     }
 
-    /**
-     * Reaplica as palavras-chave atuais aos extratos bancários já importados.
-     * Só mexe em linhas com categoria automática e nunca nas escolhidas à mão (categoria_manual).
-     * Retorna quantas linhas mudaram de categoria.
-     */
-    public function reclassificarExtratos(): int
-    {
-        $automaticas = array_merge(
-            ['Outras Despesas', 'Receitas de Vendas', 'PIX', 'Recebidos', 'Despesas Bancárias', 'Impostos', 'Movimentação Bancária', self::CATEGORIA_RESGATE],
-            array_values(self::CATEGORIAS_POTES),
-            array_keys(self::LEGADO_POTES)
-        );
-        $chaves = $this->chavesPotes();
-        $alteradas = 0;
-
-        Conciliacao::where('origem', 'banco')
-            ->where('categoria_manual', false)
-            ->where(fn ($q) => $q->whereIn('categoria', $automaticas)->orWhereNull('categoria'))
-            ->select(['id', 'tipo', 'descricao', 'categoria'])
-            ->chunkById(500, function ($linhas) use ($chaves, &$alteradas) {
-                foreach ($linhas as $l) {
-                    $nova = $this->categorizar('banco', (string) $l->tipo, Str::upper((string) $l->descricao), $chaves);
-                    if ($nova !== $l->categoria) {
-                        Conciliacao::whereKey($l->id)->update(['categoria' => $nova]);
-                        $alteradas++;
-                    }
-                }
-            });
-
-        return $alteradas;
-    }
-
     public function processar($caminhoArquivo, $origem, $instituicao, $mes, $ano)
     {
-        $chavesPotes = $origem === 'banco' ? $this->chavesPotes() : [];
-
         // 1. Detectar e forçar encoding para evitar problemas com acentuação
         $conteudo = file_get_contents($caminhoArquivo);
         $encoding = mb_detect_encoding($conteudo, ['UTF-8', 'ISO-8859-1', 'Windows-1252']);
@@ -293,7 +210,7 @@ class LeitorArquivoService
                 continue;
             }
 
-            $categoria = $this->categorizar($origem, $tipo, $descricao, $chavesPotes);
+            $categoria = $this->categorizar($tipo, $descricao);
 
             Conciliacao::create([
                 'origem' => $origem,

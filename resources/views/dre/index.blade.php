@@ -1,50 +1,59 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+        <h2 class="font-semibold text-xl text-slate-800 leading-tight">
             {{ __('Demonstrativo de Resultados (DRE)') }}
         </h2>
     </x-slot>
 
     @php
         $fmt = fn($v) => number_format((float) $v, 2, ',', '.');
+        $pct = fn($v) => number_format((float) $v, 1, ',', '.') . '%';
         $nomesMeses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
         $mesesCurtos = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        $card = 'bg-white rounded-2xl ring-1 ring-slate-200 shadow-sm';
     @endphp
 
     <style>
-        .caixa-tooltip { visibility: hidden; opacity: 0; position: absolute; bottom: 140%; left: -10px; z-index: 9999; transition: all 0.2s ease-in-out; width: 280px; }
-        .icone-ajuda:hover .caixa-tooltip { visibility: visible; opacity: 1; bottom: 150%; }
-        .tabela-anual th, .tabela-anual td { padding: 5px 4px; font-size: 10px; text-align: right; white-space: nowrap; }
-        .tabela-anual td:first-child, .tabela-anual th:first-child { text-align: left; font-weight: 600; }
+        .tabela-anual { font-variant-numeric: tabular-nums; }
+        .tabela-anual th, .tabela-anual td { padding: 7px 8px; font-size: 11.5px; text-align: right; white-space: nowrap; }
+        .tabela-anual td:first-child, .tabela-anual th:first-child { text-align: left; position: sticky; left: 0; z-index: 1; }
+        summary::-webkit-details-marker { display: none; }
     </style>
 
-    <div class="py-10 bg-gray-50 min-h-screen">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-5">
+    <div class="py-10 bg-slate-50 min-h-screen">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 tabular-nums">
 
-            <!-- BARRA DE FILTROS -->
-            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-wrap justify-between items-center gap-4">
+            <!-- CABEÇALHO E FILTROS -->
+            <div class="{{ $card }} p-6 flex flex-wrap justify-between items-center gap-4">
                 <div>
-                    <h3 class="text-xl font-bold text-gray-800">Resultado Financeiro</h3>
-                    <p class="text-sm text-gray-500">Fluxo de caixa, saldos reais e previsão de recebimentos, com base nos extratos e na maquininha.</p>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        {{ $isAnual ? 'Visão anual' : 'Visão mensal' }} &middot; regime de caixa
+                    </p>
+                    <h3 class="text-2xl font-bold text-slate-900 mt-1">
+                        {{ $isAnual ? "Resultado de {$ano}" : $nomesMeses[$mes] . ' de ' . $ano }}
+                    </h3>
+                    <p class="text-sm text-slate-500 mt-1">Fluxo de caixa real dos extratos, destinação aos potes e previsão da maquininha.</p>
                 </div>
 
-                <div class="flex items-center gap-3">
-                    <form method="GET" action="{{ route('dre.index') }}" class="flex items-center gap-3">
-                        <select name="mes" class="rounded-md border-gray-300 shadow-sm focus:border-blue-300 text-sm py-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <form method="GET" action="{{ route('dre.index') }}" class="flex flex-wrap items-center gap-2">
+                        <select name="mes" class="rounded-lg border-slate-300 text-sm py-2 focus:border-slate-500 focus:ring-slate-500">
                             <option value="todos" {{ $mesInput === 'todos' ? 'selected' : '' }}>Ano todo (comparativo)</option>
                             @for ($i = 1; $i <= 12; $i++)
                                 <option value="{{ $i }}" {{ $mesInput == $i ? 'selected' : '' }}>{{ $nomesMeses[$i] }}</option>
                             @endfor
                         </select>
-                        <select name="ano" class="rounded-md border-gray-300 shadow-sm focus:border-blue-300 text-sm py-2">
+                        <select name="ano" class="rounded-lg border-slate-300 text-sm py-2 focus:border-slate-500 focus:ring-slate-500">
                             @for ($i = date('Y') - 1; $i <= date('Y') + 2; $i++)
                                 <option value="{{ $i }}" {{ $ano == $i ? 'selected' : '' }}>{{ $i }}</option>
                             @endfor
                         </select>
-                        <button type="submit" class="bg-gray-800 hover:bg-black text-white font-bold py-2 px-6 rounded shadow transition text-sm">Filtrar</button>
+                        <button type="submit" class="bg-slate-900 hover:bg-slate-700 text-white font-semibold py-2 px-5 rounded-lg transition text-sm">Filtrar</button>
                     </form>
-                    <a href="{{ route('dre.imprimir', ['mes' => $mesInput, 'ano' => $ano]) }}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow transition text-sm">
-                        Imprimir
+                    <a href="{{ route('dre.imprimir', ['mes' => $mesInput, 'ano' => $ano]) }}" target="_blank"
+                       class="inline-flex items-center gap-2 bg-white ring-1 ring-slate-300 hover:bg-slate-100 text-slate-700 font-semibold py-2 px-4 rounded-lg transition text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
+                        Imprimir / PDF
                     </a>
                 </div>
             </div>
@@ -55,75 +64,115 @@
                 <!-- ============================================== -->
                 @php
                     $m12 = $mesesData[12];
-                    // [rótulo, chave do mês, total (null = "-"), classe do texto, colorir por sinal?]
+                    // [rótulo, chave do mês, total (null = "-"), classe do texto, linha de resultado?]
                     $secoes = [
-                        ['titulo' => 'PAINEL COMERCIAL: MAQUININHA (INFORMATIVO)', 'cabecalho' => 'bg-purple-100 text-purple-900 border-purple-200', 'linhas' => [
-                            ['Vendas no mês (bruto)', 'vendasBrutas', $totais['vendasBrutas'], 'text-gray-600', false],
-                            ['Recebido no mês (bruto)', 'recebimentosBrutos', $totais['recebimentosBrutos'], 'text-gray-600', false],
-                            ['Taxas retidas (-)', 'taxasMaquininha', $totais['taxasMaquininha'], 'text-red-600', false],
-                            ['A receber no fim do mês (bruto)', 'aReceberBruto', $m12['aReceberBruto'], 'text-purple-700 font-bold', false],
-                            ['A receber estimado (líquido)', 'aReceberLiquido', $m12['aReceberLiquido'], 'text-purple-700 font-bold', false],
+                        ['titulo' => 'Dinheiro novo e resultado', 'sub' => 'extratos bancários', 'tom' => 'emerald', 'linhas' => [
+                            ['1. Dinheiro novo (entradas)', 'receitaCaixa', $totais['receitaCaixa'], 'text-emerald-700 font-bold', false],
+                            ['Maquininha depositada', 'maquininhaNoBanco', $totais['maquininhaNoBanco'], 'text-slate-500 pl-6', false],
+                            ['PIX e outros', 'pixOutros', $totais['pixOutros'], 'text-slate-500 pl-6', false],
+                            ['2. Despesas operacionais (−)', 'saidasBanco', $totais['saidasBanco'], 'text-rose-700 font-semibold', false],
+                            ['3. Resultado operacional', 'resultadoOperacional', $totais['resultadoOperacional'], '', true],
                         ]],
-                        ['titulo' => 'DINHEIRO NOVO E RESULTADO (EXTRATOS BANCÁRIOS)', 'cabecalho' => 'bg-green-100 text-green-900 border-green-200', 'linhas' => [
-                            ['1. Dinheiro novo (entradas)', 'receitaCaixa', $totais['receitaCaixa'], 'text-green-800 font-bold', false],
-                            ['   Maquininha depositada', 'maquininhaNoBanco', $totais['maquininhaNoBanco'], 'text-gray-600', false],
-                            ['   PIX e outros', 'pixOutros', $totais['pixOutros'], 'text-gray-600', false],
-                            ['2. Despesas operacionais (-)', 'saidasBanco', $totais['saidasBanco'], 'text-red-700', false],
-                            ['3. RESULTADO OPERACIONAL', 'resultadoOperacional', $totais['resultadoOperacional'], 'font-black', true],
+                        ['titulo' => 'Destinação aos potes', 'sub' => 'não é despesa', 'tom' => 'amber', 'linhas' => [
+                            ['Lucro distribuído aos sócios', 'destLucro', $totais['destLucro'], 'text-slate-600 pl-6', false],
+                            ['Reinvestimento no negócio', 'destReinvestimento', $totais['destReinvestimento'], 'text-slate-600 pl-6', false],
+                            ['Reserva / investimento (líq.)', 'destInvestimento', $totais['destInvestimento'], 'text-slate-600 pl-6', false],
+                            ['4. Total destinado (−)', 'totalDestinacoes', $totais['totalDestinacoes'], 'text-amber-800 font-semibold', false],
+                            ['5. Resultado líquido de caixa', 'lucroLiquido', $totais['lucroLiquido'], '', true],
                         ]],
-                        ['titulo' => 'DESTINAÇÕES AOS POTES (NÃO SÃO DESPESA)', 'cabecalho' => 'bg-amber-100 text-amber-900 border-amber-200', 'linhas' => [
-                            ['   Lucro distribuído aos sócios', 'destLucro', $totais['destLucro'], 'text-amber-700', false],
-                            ['   Reinvestimento no negócio', 'destReinvestimento', $totais['destReinvestimento'], 'text-sky-700', false],
-                            ['   Reserva / investimento (líq.)', 'destInvestimento', $totais['destInvestimento'], 'text-emerald-700', false],
-                            ['4. Total destinado (-)', 'totalDestinacoes', $totais['totalDestinacoes'], 'text-amber-900 font-bold', false],
-                            ['5. RESULTADO LÍQUIDO DE CAIXA', 'lucroLiquido', $totais['lucroLiquido'], 'font-black', true],
+                        ['titulo' => 'Maquininha', 'sub' => 'informativo, não altera o resultado', 'tom' => 'violet', 'linhas' => [
+                            ['Vendas no mês (bruto)', 'vendasBrutas', $totais['vendasBrutas'], 'text-slate-600', false],
+                            ['Recebido no mês (bruto)', 'recebimentosBrutos', $totais['recebimentosBrutos'], 'text-slate-600', false],
+                            ['Taxas retidas (−)', 'taxasMaquininha', $totais['taxasMaquininha'], 'text-rose-600', false],
+                            ['A receber no fim do mês (bruto)', 'aReceberBruto', $m12['aReceberBruto'], 'text-violet-700 font-semibold', false],
+                            ['A receber estimado (líquido)', 'aReceberLiquido', $m12['aReceberLiquido'], 'text-violet-700 font-semibold', false],
                         ]],
-                        ['titulo' => 'SALDO TOTAL EM CONTA (BRADESCO + ITAÚ)', 'cabecalho' => 'bg-gray-200 text-gray-900 border-gray-300', 'linhas' => [
-                            ['Saldo inicial', 'saldoInicialTotal', null, 'text-gray-500', false],
-                            ['Entradas (+)', 'entradasTotalContas', $totais['entradasTotalContas'], 'text-green-700', false],
-                            ['Saídas (-)', 'saidasTotalContas', $totais['saidasTotalContas'], 'text-red-600', false],
-                            ['Saldo final do mês', 'saldoFinalTotal', $m12['saldoFinalTotal'], 'text-gray-900 font-black', false],
+                        ['titulo' => 'Saldo total em conta', 'sub' => 'Bradesco + Itaú', 'tom' => 'slate', 'linhas' => [
+                            ['Saldo inicial', 'saldoInicialTotal', null, 'text-slate-500', false],
+                            ['Entradas (+)', 'entradasTotalContas', $totais['entradasTotalContas'], 'text-emerald-700', false],
+                            ['Saídas (−)', 'saidasTotalContas', $totais['saidasTotalContas'], 'text-rose-600', false],
+                            ['Saldo final do mês', 'saldoFinalTotal', $m12['saldoFinalTotal'], 'text-slate-900 font-bold', false],
                         ]],
-                        ['titulo' => 'FLUXO DE CAIXA: CONTA BRADESCO', 'cabecalho' => 'bg-blue-100 text-blue-900 border-blue-200', 'linhas' => [
-                            ['Saldo inicial', 'saldoInicialBradesco', null, 'text-gray-500', false],
-                            ['Entradas (+)', 'entradasBradesco', $totais['entradasBradesco'], 'text-green-700', false],
-                            ['Saídas (-)', 'saidasBradesco', $totais['saidasBradesco'], 'text-red-600', false],
+                        ['titulo' => 'Conta Bradesco', 'sub' => 'fluxo de caixa', 'tom' => 'blue', 'linhas' => [
+                            ['Saldo inicial', 'saldoInicialBradesco', null, 'text-slate-500', false],
+                            ['Entradas (+)', 'entradasBradesco', $totais['entradasBradesco'], 'text-emerald-700', false],
+                            ['Saídas (−)', 'saidasBradesco', $totais['saidasBradesco'], 'text-rose-600', false],
                             ['Saldo final do mês', 'saldoFinalBradesco', $m12['saldoFinalBradesco'], 'text-blue-900 font-bold', false],
                         ]],
-                        ['titulo' => 'FLUXO DE CAIXA: CONTA ITAÚ', 'cabecalho' => 'bg-orange-100 text-orange-900 border-orange-200', 'linhas' => [
-                            ['Saldo inicial', 'saldoInicialItau', null, 'text-gray-500', false],
-                            ['Entradas (+)', 'entradasItau', $totais['entradasItau'], 'text-green-700', false],
-                            ['Saídas (-)', 'saidasItau', $totais['saidasItau'], 'text-red-600', false],
+                        ['titulo' => 'Conta Itaú', 'sub' => 'fluxo de caixa', 'tom' => 'orange', 'linhas' => [
+                            ['Saldo inicial', 'saldoInicialItau', null, 'text-slate-500', false],
+                            ['Entradas (+)', 'entradasItau', $totais['entradasItau'], 'text-emerald-700', false],
+                            ['Saídas (−)', 'saidasItau', $totais['saidasItau'], 'text-rose-600', false],
                             ['Saldo final do mês', 'saldoFinalItau', $m12['saldoFinalItau'], 'text-orange-900 font-bold', false],
                         ]],
                     ];
+                    $tons = [
+                        'emerald' => 'bg-emerald-50 text-emerald-900 border-l-emerald-500',
+                        'amber' => 'bg-amber-50 text-amber-900 border-l-amber-500',
+                        'violet' => 'bg-violet-50 text-violet-900 border-l-violet-500',
+                        'slate' => 'bg-slate-100 text-slate-900 border-l-slate-500',
+                        'blue' => 'bg-blue-50 text-blue-900 border-l-blue-500',
+                        'orange' => 'bg-orange-50 text-orange-900 border-l-orange-500',
+                    ];
                 @endphp
 
-                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden w-full">
-                    <div class="bg-gray-800 px-4 py-3">
-                        <h3 class="text-base font-bold text-white">Comparativo mensal e fluxo de caixa: {{ $ano }}</h3>
+                <!-- INDICADORES DO ANO -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div class="{{ $card }} p-5 border-t-4 border-t-emerald-500">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Dinheiro novo no ano</p>
+                        <p class="text-2xl font-bold text-slate-900 mt-2">R$ {{ $fmt($totais['receitaCaixa']) }}</p>
+                        <p class="text-xs text-slate-500 mt-2">O que entrou de fato nos bancos (PIX + maquininha).</p>
+                    </div>
+                    <div class="{{ $card }} p-5 border-t-4 border-t-sky-500">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Resultado operacional</p>
+                        <p class="text-2xl font-bold mt-2 {{ $totais['resultadoOperacional'] >= 0 ? 'text-slate-900' : 'text-rose-600' }}">R$ {{ $fmt($totais['resultadoOperacional']) }}</p>
+                        <p class="text-xs text-slate-500 mt-2">Sobra após as despesas &middot; margem {{ $pct($totais['margemOperacional']) }}</p>
+                    </div>
+                    <div class="{{ $card }} p-5 border-t-4 border-t-amber-500">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">Destinado aos potes</p>
+                        <p class="text-2xl font-bold text-slate-900 mt-2">R$ {{ $fmt($totais['totalDestinacoes']) }}</p>
+                        <p class="text-xs text-slate-500 mt-2">Guardado ou retirado, não é despesa.</p>
+                    </div>
+                    <div class="{{ $card }} p-5 border-t-4 border-t-violet-500">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-violet-700">Maquininha a receber</p>
+                        <p class="text-2xl font-bold text-slate-900 mt-2">R$ {{ $fmt($m12['aReceberLiquido']) }}</p>
+                        <p class="text-xs text-slate-500 mt-2">Estimado líquido em dezembro &middot; bruto R$ {{ $fmt($m12['aReceberBruto']) }}</p>
+                    </div>
+                </div>
+
+                @include('dre.partials.glossario', ['modo' => 'web'])
+
+                <!-- COMPARATIVO MENSAL -->
+                <div class="{{ $card }} overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 class="text-base font-bold text-slate-900">Comparativo mês a mês: {{ $ano }}</h3>
+                        <span class="text-xs text-slate-500">Margem líquida no ano {{ $pct($totais['margemLucro']) }} &middot; role para o lado no celular</span>
                     </div>
                     <div class="w-full overflow-x-auto">
-                        <table class="w-full tabela-anual table-fixed">
-                            <thead class="bg-gray-100 text-[9px] uppercase text-gray-700">
-                                <tr>
-                                    <th class="w-1/6 bg-gray-100 border-r border-gray-200">Indicador</th>
-                                    @foreach($mesesCurtos as $nome) <th class="w-[6%]">{{ $nome }}</th> @endforeach
-                                    <th class="w-[8%] bg-gray-200 font-black">TOTAL</th>
+                        <table class="w-full tabela-anual">
+                            <thead class="text-[10.5px] uppercase tracking-wide text-slate-500">
+                                <tr class="bg-slate-50 border-b border-slate-200">
+                                    <th class="bg-slate-50 min-w-[220px] font-semibold">Indicador</th>
+                                    @foreach($mesesCurtos as $nome) <th class="font-semibold">{{ $nome }}</th> @endforeach
+                                    <th class="bg-slate-100 font-bold text-slate-700">Total</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-200">
+                            <tbody>
                                 @foreach($secoes as $secao)
-                                    <tr><td colspan="14" class="{{ $secao['cabecalho'] }} font-bold text-center border-y-2 py-1.5">{{ $secao['titulo'] }}</td></tr>
-                                    @foreach($secao['linhas'] as [$rotulo, $chave, $total, $classe, $porSinal])
-                                        <tr class="{{ $porSinal ? 'bg-gray-800 text-white' : 'bg-white ' . $classe }}">
-                                            <td class="{{ $porSinal ? 'bg-gray-800 border-r border-gray-700' : 'bg-gray-50 border-r border-gray-200' }}">{{ $rotulo }}</td>
+                                    <tr>
+                                        <td colspan="14" class="{{ $tons[$secao['tom']] }} border-l-4 !text-left !py-2 text-xs font-bold uppercase tracking-wide">
+                                            {{ $secao['titulo'] }} <span class="ml-1 font-medium normal-case tracking-normal opacity-70">{{ $secao['sub'] }}</span>
+                                        </td>
+                                    </tr>
+                                    @foreach($secao['linhas'] as [$rotulo, $chave, $total, $classe, $resultado])
+                                        <tr class="border-b border-slate-100 {{ $resultado ? 'bg-slate-900 text-white' : 'bg-white hover:bg-slate-50 ' . $classe }}">
+                                            <td class="{{ $resultado ? 'bg-slate-900 font-bold' : 'bg-white ' . $classe }}">{{ $rotulo }}</td>
                                             @for($m = 1; $m <= 12; $m++)
                                                 @php $v = $mesesData[$m][$chave]; @endphp
-                                                <td class="{{ $porSinal ? ($v < 0 ? 'text-red-400 font-bold' : 'text-green-400 font-bold') : '' }}">{{ $fmt($v) }}</td>
+                                                <td class="{{ $resultado ? ($v < 0 ? 'text-rose-300 font-semibold' : 'text-emerald-300 font-semibold') : ((float) $v == 0.0 ? 'text-slate-300' : '') }}">{{ $fmt($v) }}</td>
                                             @endfor
-                                            <td class="{{ $porSinal ? 'bg-gray-900 font-black ' . ($total < 0 ? 'text-red-400' : 'text-green-400') : 'bg-gray-100 font-bold' }}">
-                                                {{ $total === null ? '-' : $fmt($total) }}
+                                            <td class="{{ $resultado ? 'bg-black font-bold ' . ($total < 0 ? 'text-rose-300' : 'text-emerald-300') : 'bg-slate-50 font-bold text-slate-800' }}">
+                                                {{ $total === null ? '–' : $fmt($total) }}
                                             </td>
                                         </tr>
                                     @endforeach
@@ -131,11 +180,9 @@
                             </tbody>
                         </table>
                     </div>
-                    <p class="px-4 py-3 text-[11px] text-gray-500 border-t border-gray-100">
-                        Dinheiro novo = entradas reais nos extratos (PIX + depósitos da maquininha), sem saldo anterior e sem transferências entre contas próprias.
-                        Resultado operacional = dinheiro novo − despesas reais (margem no ano: {{ number_format($totais['margemOperacional'], 1, ',', '.') }}%).
-                        Destinações aos potes ficam abaixo dele, pois não são custo do negócio.
-                        "A receber" considera as vendas do ano ainda não depositadas.
+                    <p class="px-6 py-3 text-xs text-slate-500 border-t border-slate-100 bg-slate-50/60">
+                        Leitura em cascata: <strong class="text-slate-700">1 − 2 = 3</strong> (o que a loja gerou) e <strong class="text-slate-700">3 − 4 = 5</strong> (o que ficou livre depois de separar os potes).
+                        "A receber" considera só as vendas deste ano ainda não depositadas.
                     </p>
                 </div>
 
@@ -144,253 +191,158 @@
                 <!-- LAYOUT MENSAL -->
                 <!-- ============================================== -->
 
-                <!-- INDICADORES PRINCIPAIS -->
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <div class="bg-gray-900 rounded-lg p-5 shadow-sm">
-                        <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Saldo total em conta</p>
-                        <p class="text-2xl font-black text-white mt-1">R$ {{ $fmt($saldoFinalTotal) }}</p>
-                        <p class="text-xs text-gray-400 mt-2">Bradesco R$ {{ $fmt($saldoFinalBradesco) }} &nbsp;+&nbsp; Itaú R$ {{ $fmt($saldoFinalItau) }}</p>
+                <!-- SALDO EM CONTA -->
+                <div class="rounded-2xl bg-slate-900 text-white p-6 shadow-sm flex flex-wrap items-end justify-between gap-6">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Saldo total em conta no fim do mês</p>
+                        <p class="text-4xl font-bold mt-1">R$ {{ $fmt($saldoFinalTotal) }}</p>
+                        <p class="text-sm text-slate-400 mt-2">Bradesco R$ {{ $fmt($saldoFinalBradesco) }} &nbsp;+&nbsp; Itaú R$ {{ $fmt($saldoFinalItau) }}</p>
                     </div>
-                    <div class="bg-white rounded-lg p-5 shadow-sm border border-green-200 border-t-4 border-t-green-500">
-                        <p class="text-[11px] font-bold text-green-700 uppercase tracking-wide">Dinheiro novo no mês</p>
-                        <p class="text-2xl font-black text-green-800 mt-1">R$ {{ $fmt($receitaCaixa) }}</p>
-                        <p class="text-xs text-gray-500 mt-2">Recebido de fato nos bancos neste mês</p>
-                    </div>
-                    <div class="bg-white rounded-lg p-5 shadow-sm border border-purple-200 border-t-4 border-t-purple-500">
-                        <p class="text-[11px] font-bold text-purple-700 uppercase tracking-wide">A receber da maquininha</p>
-                        <p class="text-2xl font-black text-purple-800 mt-1">R$ {{ $fmt($aReceberLiquido) }}</p>
-                        <p class="text-xs text-gray-500 mt-2">Estimado após taxas &middot; bruto R$ {{ $fmt($aReceberBruto) }}</p>
-                    </div>
-                    <div class="bg-white rounded-lg p-5 shadow-sm border border-blue-200 border-t-4 border-t-blue-500">
-                        <p class="text-[11px] font-bold text-blue-700 uppercase tracking-wide">Previsto total do mês</p>
-                        <p class="text-2xl font-black text-blue-800 mt-1">R$ {{ $fmt($previstoTotal) }}</p>
-                        <p class="text-xs text-gray-500 mt-2">Dinheiro novo + a receber da maquininha</p>
+                    <div class="text-right">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Previsto total do mês</p>
+                        <p class="text-2xl font-bold text-sky-300 mt-1">R$ {{ $fmt($previstoTotal) }}</p>
+                        <p class="text-xs text-slate-400 mt-1">Dinheiro novo + maquininha a receber</p>
                     </div>
                 </div>
 
-                <!-- DINHEIRO NOVO -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-visible">
-                    <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-                        <h3 class="text-lg font-bold text-gray-800">Dinheiro novo do mês</h3>
-                        <div class="icone-ajuda relative cursor-help flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 text-gray-600 text-xs font-bold">
-                            i
-                            <div class="caixa-tooltip bg-gray-900 text-white text-xs p-3 rounded shadow-lg font-normal leading-relaxed normal-case">
-                                Soma das entradas dos extratos (PIX e depósitos da maquininha) no mês. Não inclui o saldo que já estava na conta nem transferências entre suas contas. É este valor a base da divisão dos potes.
-                                <div class="absolute -bottom-1 left-3 w-3 h-3 bg-gray-900 transform rotate-45"></div>
-                            </div>
-                        </div>
+                <!-- MÉTRICAS PRINCIPAIS -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div class="{{ $card }} p-5 border-t-4 border-t-emerald-500">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Dinheiro novo</p>
+                        <p class="text-2xl font-bold text-slate-900 mt-2">R$ {{ $fmt($receitaCaixa) }}</p>
+                        <p class="text-xs text-slate-500 mt-2">O que "pingou" na conta neste mês.</p>
                     </div>
-                    <div class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
-                        <div>
-                            <p class="text-xs font-bold text-gray-500 uppercase">Total recebido (dinheiro novo)</p>
-                            <p class="text-4xl font-black text-green-700 mt-1">R$ {{ $fmt($receitaCaixa) }}</p>
-                        </div>
-                        <div class="lg:col-span-2 space-y-4">
-                            @php
-                                $pctMaq = $receitaCaixa > 0 ? ($maquininhaNoBanco / $receitaCaixa) * 100 : 0;
-                                $pctPix = $receitaCaixa > 0 ? 100 - $pctMaq : 0;
-                            @endphp
-                            <div class="w-full h-3 rounded-full bg-gray-100 overflow-hidden flex">
-                                <div class="bg-purple-500 h-3" style="width: {{ number_format($pctMaq, 2, '.', '') }}%"></div>
-                                <div class="bg-green-500 h-3" style="width: {{ number_format($pctPix, 2, '.', '') }}%"></div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4 text-sm">
-                                <div class="flex items-start gap-2">
-                                    <span class="mt-1.5 w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                                    <div>
-                                        <p class="text-gray-500 text-xs">Maquininha (débito e crédito depositados)</p>
-                                        <p class="font-bold text-gray-800">R$ {{ $fmt($maquininhaNoBanco) }} <span class="text-xs font-normal text-gray-400">({{ number_format($pctMaq, 0) }}%)</span></p>
-                                    </div>
-                                </div>
-                                <div class="flex items-start gap-2">
-                                    <span class="mt-1.5 w-2.5 h-2.5 rounded-full bg-green-500"></span>
-                                    <div>
-                                        <p class="text-gray-500 text-xs">PIX e outras entradas</p>
-                                        <p class="font-bold text-gray-800">R$ {{ $fmt($pixOutros) }} <span class="text-xs font-normal text-gray-400">({{ number_format($pctPix, 0) }}%)</span></p>
-                                    </div>
-                                </div>
-                            </div>
-                            <p class="text-xs text-gray-400">Entrou no Bradesco R$ {{ $fmt($entradasBradesco) }} e no Itaú R$ {{ $fmt($entradasItau) }} (inclui eventuais transferências entre as contas).</p>
-                        </div>
+                    <div class="{{ $card }} p-5 border-t-4 border-t-sky-500">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Resultado operacional</p>
+                        <p class="text-2xl font-bold mt-2 {{ $resultadoOperacional >= 0 ? 'text-slate-900' : 'text-rose-600' }}">R$ {{ $fmt($resultadoOperacional) }}</p>
+                        <p class="text-xs text-slate-500 mt-2">Sobra após pagar os custos &middot; margem {{ $pct($margemOperacional) }}</p>
+                    </div>
+                    <div class="{{ $card }} p-5 border-t-4 border-t-amber-500">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">Destinado aos potes</p>
+                        <p class="text-2xl font-bold text-slate-900 mt-2">R$ {{ $fmt($totalDestinacoes) }}</p>
+                        <p class="text-xs text-slate-500 mt-2">Guardado ou retirado, não é despesa.</p>
+                    </div>
+                    <div class="{{ $card }} p-5 border-t-4 border-t-violet-500">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-violet-700">Maquininha a receber</p>
+                        <p class="text-2xl font-bold text-slate-900 mt-2">R$ {{ $fmt($aReceberLiquido) }}</p>
+                        <p class="text-xs text-slate-500 mt-2">Estimado após taxas &middot; bruto R$ {{ $fmt($aReceberBruto) }}</p>
                     </div>
                 </div>
 
-                <!-- MAQUININHA: PREVISTO x RECEBIDO -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-100">
-                        <h3 class="text-lg font-bold text-gray-800">Maquininha: previsto x recebido</h3>
-                        <p class="text-xs text-gray-500">Débito, crédito à vista e parcelado. Informativo, não altera o resultado.</p>
-                    </div>
-                    <div class="p-6 space-y-5">
-                        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                            <div class="bg-gray-50 p-4 rounded border border-gray-100">
-                                <p class="text-[11px] font-bold text-gray-500 uppercase mb-1">Vendas no mês (bruto)</p>
-                                <p class="text-lg font-bold text-gray-800">R$ {{ $fmt($vendasBrutas) }}</p>
-                            </div>
-                            <div class="bg-gray-50 p-4 rounded border border-gray-100">
-                                <p class="text-[11px] font-bold text-gray-500 uppercase mb-1">Recebido no mês (bruto)</p>
-                                <p class="text-lg font-bold text-gray-800">R$ {{ $fmt($recebimentosBrutos) }}</p>
-                            </div>
-                            <div class="bg-red-50 p-4 rounded border border-red-100">
-                                <p class="text-[11px] font-bold text-red-600 uppercase mb-1">Taxas retidas</p>
-                                <p class="text-lg font-bold text-red-700">R$ {{ $fmt($taxasMaquininha) }}</p>
-                            </div>
-                            <div class="bg-green-50 p-4 rounded border border-green-100">
-                                <p class="text-[11px] font-bold text-green-700 uppercase mb-1">Líquido recebido</p>
-                                <p class="text-lg font-bold text-green-800">R$ {{ $fmt($recebimentosLiquidos) }}</p>
-                            </div>
-                            <div class="bg-purple-50 p-4 rounded border border-purple-100">
-                                <p class="text-[11px] font-bold text-purple-700 uppercase mb-1">A receber (líquido est.)</p>
-                                <p class="text-lg font-bold text-purple-800">R$ {{ $fmt($aReceberLiquido) }}</p>
-                            </div>
-                        </div>
+                @include('dre.partials.glossario', ['modo' => 'web'])
 
-                        <div>
-                            <div class="flex justify-between text-xs text-gray-500 mb-1">
-                                <span>Já recebido das vendas do ano até este mês: <strong class="text-gray-700">R$ {{ $fmt($recebidoAcum) }}</strong> de R$ {{ $fmt($vendasAcum) }} (bruto)</span>
-                                <span class="font-bold text-gray-700">{{ number_format($pctRecebido, 1, ',', '.') }}%</span>
-                            </div>
-                            <div class="w-full h-2.5 rounded-full bg-purple-100 overflow-hidden">
-                                <div class="bg-purple-600 h-2.5 rounded-full" style="width: {{ number_format($pctRecebido, 2, '.', '') }}%"></div>
-                            </div>
-                            <p class="text-[11px] text-gray-400 mt-2">A receber = vendas acumuladas no ano menos o que já foi depositado, descontada a taxa média do período. Parcelas de vendas de anos anteriores não entram.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- CONTAS BANCÁRIAS -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div class="bg-white rounded-lg p-5 border border-blue-200 shadow-sm border-t-4 border-t-blue-500">
-                        <h4 class="font-bold text-blue-900 border-b border-gray-100 pb-2 mb-3">Fluxo Bradesco</h4>
-                        <div class="flex justify-between text-sm mb-1"><span class="text-gray-500">Saldo inicial</span> <span class="font-bold">R$ {{ $fmt($saldoInicialBradesco) }}</span></div>
-                        <div class="flex justify-between text-sm mb-1"><span class="text-green-600">Entradas (+)</span> <span class="font-bold text-green-700">R$ {{ $fmt($entradasBradesco) }}</span></div>
-                        <div class="flex justify-between text-sm mb-2"><span class="text-red-500">Saídas (-)</span> <span class="font-bold text-red-600">R$ {{ $fmt($saidasBradesco) }}</span></div>
-                        <div class="flex justify-between text-base pt-2 border-t border-gray-100"><span class="font-bold text-blue-900">Saldo final</span> <span class="font-black text-blue-900">R$ {{ $fmt($saldoFinalBradesco) }}</span></div>
-                    </div>
-
-                    <div class="bg-white rounded-lg p-5 border border-orange-200 shadow-sm border-t-4 border-t-orange-500">
-                        <h4 class="font-bold text-orange-900 border-b border-gray-100 pb-2 mb-3">Fluxo Itaú</h4>
-                        <div class="flex justify-between text-sm mb-1"><span class="text-gray-500">Saldo inicial</span> <span class="font-bold">R$ {{ $fmt($saldoInicialItau) }}</span></div>
-                        <div class="flex justify-between text-sm mb-1"><span class="text-green-600">Entradas (+)</span> <span class="font-bold text-green-700">R$ {{ $fmt($entradasItau) }}</span></div>
-                        <div class="flex justify-between text-sm mb-2"><span class="text-red-500">Saídas (-)</span> <span class="font-bold text-red-600">R$ {{ $fmt($saidasItau) }}</span></div>
-                        <div class="flex justify-between text-base pt-2 border-t border-gray-100"><span class="font-bold text-orange-900">Saldo final</span> <span class="font-black text-orange-900">R$ {{ $fmt($saldoFinalItau) }}</span></div>
-                    </div>
-
-                    <div class="bg-gray-900 rounded-lg p-5 shadow-sm border-t-4 border-t-gray-500">
-                        <h4 class="font-bold text-white border-b border-gray-700 pb-2 mb-3">Total das contas</h4>
-                        <div class="flex justify-between text-sm mb-1"><span class="text-gray-400">Saldo inicial</span> <span class="font-bold text-gray-200">R$ {{ $fmt($saldoInicialTotal) }}</span></div>
-                        <div class="flex justify-between text-sm mb-1"><span class="text-green-400">Entradas (+)</span> <span class="font-bold text-green-400">R$ {{ $fmt($entradasTotalContas) }}</span></div>
-                        <div class="flex justify-between text-sm mb-2"><span class="text-red-400">Saídas (-)</span> <span class="font-bold text-red-400">R$ {{ $fmt($saidasTotalContas) }}</span></div>
-                        <div class="flex justify-between text-base pt-2 border-t border-gray-700"><span class="font-bold text-white">Saldo final</span> <span class="font-black text-white">R$ {{ $fmt($saldoFinalTotal) }}</span></div>
-                    </div>
-                </div>
-
-                <!-- DRE -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-visible">
-                    <div class="bg-gray-800 px-6 py-4 flex justify-between items-center rounded-t-lg">
-                        <h3 class="text-lg font-bold text-white">Demonstrativo de fluxo de caixa: {{ $nomesMeses[$mes] }}/{{ $ano }}</h3>
-                        <span class="text-xs text-gray-300">Margem operacional {{ number_format($margemOperacional, 1, ',', '.') }}% &middot; líquida {{ number_format($margemLucro, 1, ',', '.') }}%</span>
+                <!-- DEMONSTRATIVO EM CASCATA -->
+                <div class="{{ $card }} overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap justify-between items-baseline gap-2">
+                        <h3 class="text-base font-bold text-slate-900">Demonstrativo de caixa: {{ $nomesMeses[$mes] }}/{{ $ano }}</h3>
+                        <span class="text-xs text-slate-500">Margem operacional {{ $pct($margemOperacional) }} &middot; líquida {{ $pct($margemLucro) }}</span>
                     </div>
 
                     @php
                         $base = max($receitaCaixa, 0.01);
                         $barra = [
-                            ['Despesas', 'bg-red-400', max(0, $saidasBanco)],
+                            ['Despesas', 'bg-rose-400', max(0, $saidasBanco)],
                             ['Lucro sócios', 'bg-amber-500', max(0, $destLucro)],
                             ['Reinvestimento', 'bg-sky-500', max(0, $destReinvestimento)],
                             ['Reserva', 'bg-emerald-500', max(0, $destInvestimento)],
-                            ['Sobra em caixa', 'bg-gray-300', max(0, $lucroLiquido)],
+                            ['Sobra em caixa', 'bg-slate-300', max(0, $lucroLiquido)],
                         ];
                     @endphp
                     @if($receitaCaixa > 0)
                         <div class="px-6 pt-5">
-                            <p class="text-[11px] font-bold text-gray-500 uppercase mb-2">Para onde foi o dinheiro novo</p>
-                            <div class="w-full h-4 rounded-full bg-gray-100 overflow-hidden flex">
+                            <p class="text-xs font-semibold text-slate-500 mb-2">Para onde foi cada R$ 100 de dinheiro novo</p>
+                            <div class="w-full h-3 rounded-full bg-slate-100 overflow-hidden flex">
                                 @foreach($barra as [$rot, $cor, $v])
-                                    <div class="{{ $cor }} h-4" style="width: {{ number_format(min(100, $v / $base * 100), 2, '.', '') }}%" title="{{ $rot }}: R$ {{ $fmt($v) }}"></div>
+                                    <div class="{{ $cor }} h-3" style="width: {{ number_format(min(100, $v / $base * 100), 2, '.', '') }}%" title="{{ $rot }}: R$ {{ $fmt($v) }}"></div>
                                 @endforeach
                             </div>
-                            <div class="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-xs text-gray-600">
+                            <div class="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-xs text-slate-600">
                                 @foreach($barra as [$rot, $cor, $v])
-                                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full {{ $cor }}"></span>{{ $rot }} {{ number_format($v / $base * 100, 0) }}%</span>
+                                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full {{ $cor }}"></span>{{ $rot }} <strong class="text-slate-800">{{ number_format($v / $base * 100, 0) }}%</strong></span>
                                 @endforeach
                             </div>
                         </div>
                     @endif
 
-                    <table class="w-full text-sm text-left">
-                        <tbody class="divide-y divide-gray-100">
-                            <tr class="bg-green-50/50">
-                                <td class="px-6 py-4 font-bold text-gray-800 w-2/3">1. DINHEIRO NOVO (ENTRADAS BRADESCO + ITAÚ)</td>
-                                <td class="px-6 py-4 font-bold text-green-700 text-right">R$ {{ $fmt($receitaCaixa) }}</td>
+                    <table class="w-full text-sm mt-5">
+                        <tbody>
+                            <!-- ENTRADAS -->
+                            <tr class="bg-emerald-50 border-l-4 border-l-emerald-500">
+                                <td class="px-6 py-3.5 font-bold text-emerald-900">1. Dinheiro novo <span class="font-normal text-emerald-700 text-xs">entradas Bradesco + Itaú</span></td>
+                                <td class="px-6 py-3.5 font-bold text-emerald-800 text-right">R$ {{ $fmt($receitaCaixa) }}</td>
+                            </tr>
+                            <tr class="border-b border-slate-100">
+                                <td class="pl-12 pr-6 py-2 text-slate-600">Maquininha depositada</td>
+                                <td class="px-6 py-2 text-slate-600 text-right">R$ {{ $fmt($maquininhaNoBanco) }}</td>
                             </tr>
                             <tr>
-                                <td class="px-8 py-2 text-gray-600">Maquininha depositada</td>
-                                <td class="px-6 py-2 text-gray-500 text-right">R$ {{ $fmt($maquininhaNoBanco) }}</td>
-                            </tr>
-                            <tr>
-                                <td class="px-8 py-2 text-gray-600">PIX e outras entradas</td>
-                                <td class="px-6 py-2 text-gray-500 text-right">R$ {{ $fmt($pixOutros) }}</td>
+                                <td class="pl-12 pr-6 py-2 text-slate-600">PIX e outras entradas</td>
+                                <td class="px-6 py-2 text-slate-600 text-right">R$ {{ $fmt($pixOutros) }}</td>
                             </tr>
 
-                            <tr class="bg-red-50/30 border-t-2 border-gray-100">
-                                <td class="px-6 py-4 font-bold text-gray-800">2. DESPESAS OPERACIONAIS (POR CATEGORIA)</td>
-                                <td class="px-6 py-4 font-bold text-red-600 text-right">- R$ {{ $fmt($saidasBanco) }}</td>
+                            <!-- SAÍDAS -->
+                            <tr class="bg-rose-50 border-l-4 border-l-rose-500">
+                                <td class="px-6 py-3.5 font-bold text-rose-900">2. Despesas operacionais <span class="font-normal text-rose-700 text-xs">custos da loja, por categoria</span></td>
+                                <td class="px-6 py-3.5 font-bold text-rose-700 text-right">− R$ {{ $fmt($saidasBanco) }}</td>
                             </tr>
                             @forelse($categoriasDespesas as $despesa)
-                                <tr>
-                                    <td class="px-8 py-2.5 text-gray-600 font-medium">{{ $despesa->categoria_nome }}</td>
-                                    <td class="px-6 py-2.5 text-gray-500 text-right">R$ {{ $fmt($despesa->total) }}</td>
+                                <tr class="border-b border-slate-100 last:border-0">
+                                    <td class="pl-12 pr-6 py-2 text-slate-600">{{ $despesa->categoria_nome }}</td>
+                                    <td class="px-6 py-2 text-slate-600 text-right">R$ {{ $fmt($despesa->total) }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="2" class="px-8 py-3 text-gray-400 text-xs italic">Nenhuma despesa registrada neste período.</td></tr>
+                                <tr><td colspan="2" class="pl-12 pr-6 py-3 text-slate-400 text-xs italic">Nenhuma despesa registrada neste período.</td></tr>
                             @endforelse
 
-                            <tr class="bg-emerald-900 text-white border-t-2 border-black">
-                                <td class="px-6 py-4 font-bold text-base uppercase">3. Resultado operacional (1 − 2)</td>
-                                <td class="px-6 py-4 font-black text-lg text-right {{ $resultadoOperacional >= 0 ? 'text-green-300' : 'text-red-300' }}">R$ {{ $fmt($resultadoOperacional) }}</td>
+                            <tr class="bg-slate-900 text-white">
+                                <td class="px-6 py-4 font-bold">3. Resultado operacional <span class="font-normal text-slate-400 text-xs">(1 − 2) o que a loja gerou</span></td>
+                                <td class="px-6 py-4 font-bold text-lg text-right {{ $resultadoOperacional >= 0 ? 'text-emerald-300' : 'text-rose-300' }}">R$ {{ $fmt($resultadoOperacional) }}</td>
                             </tr>
 
-                            <tr class="bg-amber-50 border-t-2 border-amber-200">
-                                <td class="px-6 py-4 font-bold text-amber-900">4. DESTINAÇÕES AOS POTES <span class="ml-1 text-[10px] font-semibold bg-amber-200 text-amber-900 rounded px-1.5 py-0.5">não é despesa</span></td>
-                                <td class="px-6 py-4 font-bold text-amber-800 text-right">- R$ {{ $fmt($totalDestinacoes) }}</td>
+                            <!-- POTES -->
+                            <tr class="bg-amber-50 border-l-4 border-l-amber-500">
+                                <td class="px-6 py-3.5 font-bold text-amber-900">
+                                    4. Destinação aos potes
+                                    <span class="ml-1 text-[10px] font-semibold uppercase tracking-wide bg-amber-200/70 text-amber-900 rounded-full px-2 py-0.5">não é despesa</span>
+                                </td>
+                                <td class="px-6 py-3.5 font-bold text-amber-800 text-right">− R$ {{ $fmt($totalDestinacoes) }}</td>
                             </tr>
                             @foreach([
                                 ['Lucro distribuído aos sócios', 'bg-amber-500', $destLucro],
                                 ['Reinvestimento no negócio', 'bg-sky-500', $destReinvestimento],
                                 ['Reserva / investimento (aplicações − resgates)', 'bg-emerald-500', $destInvestimento],
                             ] as [$rot, $cor, $v])
-                                <tr class="bg-amber-50/40">
-                                    <td class="px-8 py-2.5 text-gray-700 font-medium"><span class="inline-block w-2.5 h-2.5 rounded-full {{ $cor }} mr-2"></span>{{ $rot }}</td>
-                                    <td class="px-6 py-2.5 text-gray-600 text-right">R$ {{ $fmt($v) }}</td>
+                                <tr class="border-b border-slate-100 last:border-0">
+                                    <td class="pl-12 pr-6 py-2 text-slate-600"><span class="inline-block w-2 h-2 rounded-full {{ $cor }} mr-2 align-middle"></span>{{ $rot }}</td>
+                                    <td class="px-6 py-2 text-slate-600 text-right">R$ {{ $fmt($v) }}</td>
                                 </tr>
                             @endforeach
 
-                            <tr class="bg-gray-800 text-white border-t-2 border-black">
-                                <td class="px-6 py-5 font-bold text-lg uppercase">5. Resultado líquido de caixa (3 − 4)</td>
-                                <td class="px-6 py-5 font-bold text-lg text-right {{ $lucroLiquido >= 0 ? 'text-green-400' : 'text-red-400' }}">R$ {{ $fmt($lucroLiquido) }}</td>
+                            <tr class="bg-black text-white">
+                                <td class="px-6 py-5 font-bold text-base">5. Resultado líquido de caixa <span class="font-normal text-slate-400 text-xs">(3 − 4) o que ficou livre</span></td>
+                                <td class="px-6 py-5 font-bold text-xl text-right {{ $lucroLiquido >= 0 ? 'text-emerald-300' : 'text-rose-300' }}">R$ {{ $fmt($lucroLiquido) }}</td>
                             </tr>
                         </tbody>
                     </table>
 
                     <!-- Conferência: extrato x módulo de Potes -->
-                    <div class="px-6 py-5 border-t border-gray-100">
-                        <p class="text-[11px] font-bold text-gray-500 uppercase mb-3">Conferência com o módulo de Potes</p>
+                    <div class="px-6 py-5 border-t border-slate-100 bg-slate-50/60">
+                        <p class="text-xs font-semibold text-slate-500 mb-3">Conferência com o módulo de Potes</p>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            @foreach(['lucro' => ['Lucro', 'border-amber-300', 'Retiradas registradas'], 'reinvestimento' => ['Reinvestimento', 'border-sky-300', 'Retiradas registradas'], 'investimento' => ['Investimento', 'border-emerald-300', 'Aporte − retiradas']] as $p => [$nome, $borda, $rotReg])
+                            @foreach(['lucro' => ['Lucro', 'border-t-amber-400', 'Retiradas registradas'], 'reinvestimento' => ['Reinvestimento', 'border-t-sky-400', 'Retiradas registradas'], 'investimento' => ['Investimento', 'border-t-emerald-400', 'Aporte − retiradas']] as $p => [$nome, $borda, $rotReg])
                                 @php $c = $conferenciaPotes[$p]; @endphp
-                                <div class="rounded-lg border {{ $borda }} bg-white p-3 text-xs space-y-1 tabular-nums">
-                                    <div class="flex justify-between items-center">
-                                        <span class="font-bold text-gray-800 text-sm">{{ $nome }}</span>
+                                <div class="rounded-xl bg-white ring-1 ring-slate-200 border-t-4 {{ $borda }} p-4 text-xs space-y-1.5">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="font-bold text-slate-800 text-sm">{{ $nome }}</span>
                                         @if($c['diverge'])
-                                            <span class="bg-red-100 text-red-700 font-bold rounded px-1.5 py-0.5">diverge</span>
+                                            <span class="bg-rose-100 text-rose-700 font-semibold rounded-full px-2 py-0.5">diverge</span>
                                         @else
-                                            <span class="bg-green-100 text-green-700 font-bold rounded px-1.5 py-0.5">ok</span>
+                                            <span class="bg-emerald-100 text-emerald-700 font-semibold rounded-full px-2 py-0.5">ok</span>
                                         @endif
                                     </div>
-                                    <div class="flex justify-between text-gray-500"><span>Planejado (divisão)</span><span>R$ {{ $fmt($c['planejado']) }}</span></div>
-                                    <div class="flex justify-between text-gray-600"><span>{{ $rotReg }}</span><span>R$ {{ $fmt($c['registrado']) }}</span></div>
-                                    <div class="flex justify-between font-bold text-gray-800"><span>Identificado no extrato</span><span>R$ {{ $fmt($c['extrato']) }}</span></div>
+                                    <div class="flex justify-between text-slate-500"><span>Planejado (divisão)</span><span>R$ {{ $fmt($c['planejado']) }}</span></div>
+                                    <div class="flex justify-between text-slate-600"><span>{{ $rotReg }}</span><span>R$ {{ $fmt($c['registrado']) }}</span></div>
+                                    <div class="flex justify-between font-semibold text-slate-800"><span>Identificado no extrato</span><span>R$ {{ $fmt($c['extrato']) }}</span></div>
                                     @if($p === 'reinvestimento' && $prioridadesConcluidas > 0)
                                         <div class="flex justify-between text-sky-700"><span>Prioridades concluídas</span><span>R$ {{ $fmt($prioridadesConcluidas) }}</span></div>
                                     @endif
@@ -398,14 +350,96 @@
                             @endforeach
                         </div>
                         @if(collect($conferenciaPotes)->contains('diverge', true))
-                            <p class="text-[11px] text-red-600 mt-2">Há diferença entre o que foi registrado nos Potes e o que o extrato identificou. Confira as palavras-chave em Despesas → Configurações: retiradas não reconhecidas continuam contando como "Outras Despesas".</p>
+                            <p class="text-xs text-rose-600 mt-3">Há diferença entre o que foi registrado nos Potes e o que o extrato identificou. Confira as palavras-chave em Despesas → Configurações: retiradas não reconhecidas continuam contando como "Outras Despesas".</p>
+                        @endif
+                        @if($transferenciasInternas > 0)
+                            <p class="text-xs text-slate-500 mt-3">R$ {{ $fmt($transferenciasInternas) }} em transferências internas / aplicações ficaram fora do DRE (não são receita nem despesa).</p>
                         @endif
                     </div>
-                    @if($transferenciasInternas > 0)
-                        <p class="px-6 py-3 text-[11px] text-gray-400 border-t border-gray-100">
-                            R$ {{ $fmt($transferenciasInternas) }} em transferências internas / aplicações ficaram fora do DRE (não são receita nem despesa).
-                        </p>
-                    @endif
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    <!-- COMPOSIÇÃO DO DINHEIRO NOVO -->
+                    <div class="{{ $card }} p-6 lg:col-span-2">
+                        <h3 class="text-base font-bold text-slate-900">De onde veio o dinheiro novo</h3>
+                        <p class="text-xs text-slate-500 mt-1">Entradas reais nos extratos deste mês.</p>
+                        @php
+                            $pctMaq = $receitaCaixa > 0 ? ($maquininhaNoBanco / $receitaCaixa) * 100 : 0;
+                            $pctPix = $receitaCaixa > 0 ? 100 - $pctMaq : 0;
+                        @endphp
+                        <p class="text-3xl font-bold text-emerald-700 mt-4">R$ {{ $fmt($receitaCaixa) }}</p>
+                        <div class="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden flex mt-4">
+                            <div class="bg-violet-500 h-2.5" style="width: {{ number_format($pctMaq, 2, '.', '') }}%"></div>
+                            <div class="bg-emerald-500 h-2.5" style="width: {{ number_format($pctPix, 2, '.', '') }}%"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 text-sm mt-4">
+                            <div class="flex items-start gap-2">
+                                <span class="mt-1.5 w-2.5 h-2.5 rounded-full bg-violet-500 shrink-0"></span>
+                                <div>
+                                    <p class="text-slate-500 text-xs">Maquininha depositada</p>
+                                    <p class="font-semibold text-slate-800">R$ {{ $fmt($maquininhaNoBanco) }} <span class="text-xs font-normal text-slate-400">{{ number_format($pctMaq, 0) }}%</span></p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <span class="mt-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                <div>
+                                    <p class="text-slate-500 text-xs">PIX e outras entradas</p>
+                                    <p class="font-semibold text-slate-800">R$ {{ $fmt($pixOutros) }} <span class="text-xs font-normal text-slate-400">{{ number_format($pctPix, 0) }}%</span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-4">Entrou no Bradesco R$ {{ $fmt($entradasBradesco) }} e no Itaú R$ {{ $fmt($entradasItau) }} (inclui eventuais transferências entre as contas).</p>
+                    </div>
+
+                    <!-- MAQUININHA -->
+                    <div class="{{ $card }} p-6 lg:col-span-3">
+                        <h3 class="text-base font-bold text-slate-900">Maquininha: vendido x recebido</h3>
+                        <p class="text-xs text-slate-500 mt-1">Débito, crédito à vista e parcelado. Informativo, não altera o resultado.</p>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
+                            @foreach([
+                                ['Vendas no mês', 'bruto', $vendasBrutas, 'bg-slate-50 text-slate-800'],
+                                ['Recebido no mês', 'bruto', $recebimentosBrutos, 'bg-slate-50 text-slate-800'],
+                                ['Taxas retidas', 'custo do cartão', $taxasMaquininha, 'bg-rose-50 text-rose-700'],
+                                ['Líquido recebido', 'caiu na conta', $recebimentosLiquidos, 'bg-emerald-50 text-emerald-800'],
+                                ['A receber', 'líquido estimado', $aReceberLiquido, 'bg-violet-50 text-violet-800'],
+                            ] as [$rot, $sub, $v, $tom])
+                                <div class="rounded-xl p-3 {{ $tom }}">
+                                    <p class="text-[11px] font-semibold opacity-80">{{ $rot }}</p>
+                                    <p class="text-base font-bold mt-1 whitespace-nowrap">R$ {{ $fmt($v) }}</p>
+                                    <p class="text-[10px] opacity-60">{{ $sub }}</p>
+                                </div>
+                            @endforeach
+                        </div>
+                        <div class="mt-5">
+                            <div class="flex justify-between text-xs text-slate-500 mb-1.5">
+                                <span>Recebido das vendas do ano: <strong class="text-slate-700">R$ {{ $fmt($recebidoAcum) }}</strong> de R$ {{ $fmt($vendasAcum) }}</span>
+                                <span class="font-semibold text-slate-700">{{ $pct($pctRecebido) }}</span>
+                            </div>
+                            <div class="w-full h-2 rounded-full bg-violet-100 overflow-hidden">
+                                <div class="bg-violet-500 h-2 rounded-full" style="width: {{ number_format($pctRecebido, 2, '.', '') }}%"></div>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-2">A receber = vendas acumuladas no ano − o que já foi depositado, descontada a taxa média. Parcelas de vendas de anos anteriores não entram.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONTAS BANCÁRIAS -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    @foreach([
+                        ['Conta Bradesco', 'border-t-blue-500', 'text-blue-900', $saldoInicialBradesco, $entradasBradesco, $saidasBradesco, $saldoFinalBradesco],
+                        ['Conta Itaú', 'border-t-orange-500', 'text-orange-900', $saldoInicialItau, $entradasItau, $saidasItau, $saldoFinalItau],
+                        ['Total das contas', 'border-t-slate-700', 'text-slate-900', $saldoInicialTotal, $entradasTotalContas, $saidasTotalContas, $saldoFinalTotal],
+                    ] as [$nome, $borda, $cor, $ini, $ent, $sai, $fim])
+                        <div class="{{ $card }} p-5 border-t-4 {{ $borda }}">
+                            <h4 class="font-bold {{ $cor }} mb-3">{{ $nome }}</h4>
+                            <dl class="space-y-1.5 text-sm">
+                                <div class="flex justify-between"><dt class="text-slate-500">Saldo inicial</dt><dd class="font-medium text-slate-700">R$ {{ $fmt($ini) }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-emerald-700">Entradas (+)</dt><dd class="font-medium text-emerald-700">R$ {{ $fmt($ent) }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-rose-600">Saídas (−)</dt><dd class="font-medium text-rose-600">R$ {{ $fmt($sai) }}</dd></div>
+                                <div class="flex justify-between pt-2 mt-1 border-t border-slate-100"><dt class="font-semibold {{ $cor }}">Saldo final</dt><dd class="font-bold {{ $cor }}">R$ {{ $fmt($fim) }}</dd></div>
+                            </dl>
+                        </div>
+                    @endforeach
                 </div>
             @endif
 

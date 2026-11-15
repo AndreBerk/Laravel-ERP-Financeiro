@@ -92,6 +92,7 @@ class DespesaController extends Controller
             'historicoFaturamentos' => PoteFaturamento::orderBy('ano', 'desc')->orderBy('mes', 'desc')->limit(24)->get(),
             'historicoSaques' => PoteSaque::orderBy('data_saque', 'desc')->limit(50)->get(),
             'despesasPessoais' => Despesa::where('tipo_despesa', 'pessoal')->get(),
+            'prioridades' => PrioridadeInvestimento::orderBy('created_at')->get(),
         ]);
     }
 
@@ -115,15 +116,7 @@ class DespesaController extends Controller
             'nome_socio1' => 'nullable|string|max:100',
             'nome_socio2' => 'nullable|string|max:100',
             'nome_socio3' => 'nullable|string|max:100',
-            'chaves_lucro' => 'nullable|string|max:2000',
-            'chaves_reinvestimento' => 'nullable|string|max:2000',
-            'chaves_investimento' => 'nullable|string|max:2000',
         ]);
-
-        // Normaliza: "pix joão , Dividendos" -> "PIX JOAO, DIVIDENDOS" (sem acento, sem duplicadas)
-        foreach (['chaves_lucro', 'chaves_reinvestimento', 'chaves_investimento'] as $campo) {
-            $d[$campo] = implode(', ', \App\Services\LeitorArquivoService::listaChaves($d[$campo] ?? '')) ?: null;
-        }
 
         if (round($d['pct_operacao'] + $d['pct_reinvestimento'] + $d['pct_lucro'] + $d['pct_investimento'], 2) != 100.00) {
             return back()->withInput()->withErrors(['erro_potes' => 'A soma dos potes (Operação + Reinvestimento + Lucro + Investimento) deve ser exatamente 100%.']);
@@ -137,15 +130,6 @@ class DespesaController extends Controller
 
         $this->config()->forceFill($d)->save();
         return back()->with('success', 'Configurações atualizadas com sucesso!');
-    }
-
-    /** Reaplica as palavras-chave dos potes aos extratos já importados. */
-    public function reclassificarExtratos(\App\Services\LeitorArquivoService $leitor)
-    {
-        $n = $leitor->reclassificarExtratos();
-        return back()->with('success', $n > 0
-            ? "Extratos reclassificados: {$n} lançamento(s) mudaram de categoria. Confira o DRE."
-            : 'Nenhum lançamento mudou de categoria com as palavras-chave atuais.');
     }
 
     // ==========================================

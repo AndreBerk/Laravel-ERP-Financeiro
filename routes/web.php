@@ -37,7 +37,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // ==========================================
     Route::prefix('despesas/potes')->group(function () {
         Route::post('config', [\App\Http\Controllers\DespesaController::class, 'salvarConfiguracaoPotes'])->name('potes.configuracao');
-        Route::post('reclassificar', [\App\Http\Controllers\DespesaController::class, 'reclassificarExtratos'])->name('potes.reclassificar');
         Route::post('faturamento', [\App\Http\Controllers\DespesaController::class, 'salvarFaturamentoPotes'])->name('potes.faturamento');
         Route::post('despesa', [\App\Http\Controllers\DespesaController::class, 'salvarDespesaPotes'])->name('potes.despesa');
         Route::post('despesa/copiar-fixas', [\App\Http\Controllers\DespesaController::class, 'copiarFixas'])->name('potes.fixas.copiar'); // NOVA ROTA
