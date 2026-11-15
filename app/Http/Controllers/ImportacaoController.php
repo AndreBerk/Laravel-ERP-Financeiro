@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Conciliacao;
+use App\Models\TaxaMaquininha;
 use Illuminate\Support\Facades\DB;
 use App\Services\LeitorArquivoService;
 
@@ -119,8 +120,18 @@ class ImportacaoController extends Controller
     // =========================================================================
     private function auditarTaxasLote($instituicao, $mes, $ano)
     {
-        // Se no formulário veio 'itau', no banco salvamos a taxa como 'rede'
-        $instBusca = ($instituicao === 'itau') ? 'rede' : $instituicao;
+        // A tela grava "itau" para a Rede; dados antigos podem estar como "rede".
+        $instituicoes = in_array($instituicao, ['itau', 'rede'], true) ? ['itau', 'rede'] : [$instituicao];
+        $regras = TaxaMaquininha::whereIn('instituicao', $instituicoes)->get();
+        if ($regras->isEmpty()) return;
+
+        $bandeiras = [
+            'visa' => ['visa', 'electron'], 'mastercard' => ['master', 'maestro'],
+            'amex' => ['amex', 'american'], 'hipercard' => ['hiper'], 'diners' => ['diners'],
+            'cabal' => ['cabal'], 'sicredi' => ['sicredi'], 'sorocred' => ['sorocred'],
+            'banescard' => ['banescard'], 'jcb' => ['jcb'], 'credz' => ['credz'],
+            'cup' => ['cup', 'union'], 'elo' => ['elo'],
+        ];
 
         $vendas = Conciliacao::where('origem', 'maquininha_vendas')
             ->where('conta_instituicao', $instituicao)
@@ -129,37 +140,39 @@ class ImportacaoController extends Controller
             ->get();
 
         foreach ($vendas as $venda) {
-            $desc = strtolower($venda->descricao);
+            $desc = mb_strtolower(\Illuminate\Support\Str::ascii($venda->descricao));
 
-            // 1. Adivinha a Bandeira pela descrição do extrato
-            $bandeira = 'mastercard'; // Padrão
-            if (str_contains($desc, 'visa') || str_contains($desc, 'electron')) $bandeira = 'visa';
-            elseif (str_contains($desc, 'elo')) $bandeira = 'elo';
-            elseif (str_contains($desc, 'amex') || str_contains($desc, 'american')) $bandeira = 'amex';
-            elseif (str_contains($desc, 'hiper')) $bandeira = 'hipercard';
-            elseif (str_contains($desc, 'diners')) $bandeira = 'diners';
-
-            // 2. Adivinha a Modalidade
-            $modalidade = 'credito';
-            if (str_contains($desc, 'debito') || str_contains($desc, 'débito') || str_contains($desc, 'electron') || str_contains($desc, 'maestro')) {
-                $modalidade = 'debito';
+            // 1. Bandeira pela descrição do extrato
+            $bandeira = null;
+            foreach ($bandeiras as $nome => $termos) {
+                foreach ($termos as $t) {
+                    if (preg_match('/\b' . $t . '/', $desc)) { $bandeira = $nome; break 2; }
+                }
             }
 
-            // 3. Adivinha as Parcelas (Procura por "02/06" -> Total = 6)
+            // 2. Parcelas ("02/06" -> 6, "PARC 3" -> 3)
             $parcelas = 1;
-            if (preg_match('/\/(\d{2})/', $desc, $matches)) {
-                $parcelas = (int)$matches[1];
-            } elseif (preg_match('/parc[^\d]*(\d+)/i', $desc, $matches)) {
-                $parcelas = (int)$matches[1];
+            if (preg_match('/\/(\d{2})/', $desc, $m)) {
+                $parcelas = (int) $m[1];
+            } elseif (preg_match('/parc[^\d]*(\d+)/', $desc, $m)) {
+                $parcelas = (int) $m[1];
             }
+            $parcelas = max(1, $parcelas);
 
-            // 4. Vai buscar na nossa tabela de taxas configurada
-            $taxaEsperada = DB::table('taxas_maquininhas')
-                ->where('instituicao', $instBusca)
-                ->where('bandeira', $bandeira)
-                ->where('modalidade', $modalidade)
-                ->where('parcelas', $parcelas)
-                ->value('taxa');
+            // 3. Modalidade
+            $modalidade = match (true) {
+                str_contains($desc, 'pix') => 'pix',
+                str_contains($desc, 'debito') || str_contains($desc, 'electron') || str_contains($desc, 'maestro') => 'debito',
+                $parcelas > 1 => 'credito_parcelado',
+                default => 'credito_vista',
+            };
+
+            // 4. Regra da tabela: bandeira exata vence "todas"/vazia; faixa de parcelas
+            $candidatas = $regras->filter(fn ($r) => $r->modalidade === $modalidade
+                && $parcelas >= $r->parcela_de && $parcelas <= $r->parcela_ate);
+            $regra = $candidatas->firstWhere('bandeira', $bandeira)
+                ?? $candidatas->first(fn ($r) => in_array($r->bandeira, [null, '', 'todas'], true));
+            $taxaEsperada = $regra?->taxa_percentual;
 
             // 5. Preenche a transação com a auditoria
             if ($taxaEsperada !== null) {

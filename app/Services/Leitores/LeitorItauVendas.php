@@ -17,50 +17,47 @@ class LeitorItauVendas implements LeitorInterface
 
         if (($handle = fopen($caminhoArquivo, "r")) !== FALSE) {
 
-            // 1. DESCOBRE O SEPARADOR
-            $textoAmostra = '';
-            for($i=0; $i<15; $i++) {
-                $linhaTexto = fgets($handle);
-                if($linhaTexto) $textoAmostra .= $linhaTexto;
-            }
-            $separador = substr_count($textoAmostra, ';') > substr_count($textoAmostra, ',') ? ';' : ',';
-            rewind($handle);
-
-            // 2. CAÇADOR DE CABEÇALHO
+            // 1 e 2. CAÇADOR DE CABEÇALHO: acha a linha "data do recebimento" / "data da venda"
+            //        e descobre o separador NELA (o bloco de título do topo não conta)
             $cabecalho = false;
-            while (($linha = fgetcsv($handle, 4000, $separador)) !== FALSE) {
-                if(count($linha) < 4) continue;
-                $linhaStr = strtolower(implode(" ", $linha));
-                if (strpos($linhaStr, 'data') !== false && strpos($linhaStr, 'valor') !== false) {
-                    $cabecalho = array_map('strtolower', array_map('trim', $linha));
-                    break;
-                }
+            $separador = ',';
+            while (($linhaTexto = fgets($handle)) !== FALSE) {
+                $linhaTexto = ltrim($linhaTexto, "\u{FEFF}");
+                $norm = $this->normalizar($linhaTexto);
+                if (!str_starts_with($norm, 'data do recebimento') && !str_starts_with($norm, 'data da venda')) continue;
+
+                $separador = substr_count($linhaTexto, ';') > substr_count($linhaTexto, ',') ? ';' : ',';
+                $cabecalho = array_map([$this, 'normalizar'], str_getcsv(rtrim($linhaTexto, "\r\n"), $separador));
+                break;
             }
 
             if (!$cabecalho) return 0;
 
-            // 3. MAPEA AS COLUNAS (Agora caçando também parcelas, bandeira e taxas)
-            $idxData = -1; $idxStatus = -1; $idxModalidade = -1; $idxValorLiquido = -1;
+            // 3. MAPEIA AS COLUNAS (nomes sem acento: "valor líquido" -> "valor liquido")
+            $idxData = 0; $idxStatus = -1; $idxModalidade = -1; $idxValorLiquido = -1; $idxValorAtualizado = -1;
             $idxValorBruto = -1; $idxBandeira = -1; $idxParcelas = -1; $idxTaxaCobrada = -1;
 
             foreach ($cabecalho as $index => $col) {
-                $col = preg_replace('/[^\p{L}\p{N}\s]/u', '', $col); // Limpa sujeiras
+                $ehValor = str_contains($col, 'valor') && !str_contains($col, 'mdr') && !str_contains($col, 'taxa');
 
-                if ($idxData === -1 && strpos($col, 'data') !== false) $idxData = $index;
-                if ($idxStatus === -1 && strpos($col, 'status') !== false) $idxStatus = $index;
-                if ($idxModalidade === -1 && (strpos($col, 'modalidade') !== false || strpos($col, 'produto') !== false)) $idxModalidade = $index;
+                if ($idxStatus === -1 && str_contains($col, 'status')) $idxStatus = $index;
+                if ($idxModalidade === -1 && (str_contains($col, 'modalidade') || str_contains($col, 'produto'))) $idxModalidade = $index;
 
-                if (strpos($col, 'atualizado') !== false || strpos($col, 'liquido') !== false) $idxValorLiquido = $index;
-                if ($idxValorBruto === -1 && strpos($col, 'original') !== false) $idxValorBruto = $index;
-                if ($idxBandeira === -1 && strpos($col, 'bandeira') !== false) $idxBandeira = $index;
-                if ($idxParcelas === -1 && strpos($col, 'parcelas') !== false) $idxParcelas = $index;
-                if ($idxTaxaCobrada === -1 && (strpos($col, 'taxas descontadas') !== false || strpos($col, 'taxa mdr') !== false)) $idxTaxaCobrada = $index;
+                if ($idxValorLiquido === -1 && $ehValor && str_contains($col, 'liquido')) $idxValorLiquido = $index;
+                if ($idxValorAtualizado === -1 && $ehValor && str_contains($col, 'atualizad')) $idxValorAtualizado = $index;
+                if ($idxValorBruto === -1 && $ehValor && !str_contains($col, 'liquido') && (str_contains($col, 'original') || str_contains($col, 'bruto'))) $idxValorBruto = $index;
+                if ($idxBandeira === -1 && str_contains($col, 'bandeira')) $idxBandeira = $index;
+                if ($idxParcelas === -1 && str_contains($col, 'parcelas')) $idxParcelas = $index;
+                if ($idxTaxaCobrada === -1 && (str_contains($col, 'taxas descontadas') || str_contains($col, 'taxa mdr'))) $idxTaxaCobrada = $index;
             }
+
+            // "valor atualizado" é bruto: só serve de líquido se não existir coluna de líquido
+            if ($idxValorLiquido === -1) $idxValorLiquido = $idxValorAtualizado;
 
             // Fallback se não achar o Bruto
             if ($idxValorBruto === -1) $idxValorBruto = $idxValorLiquido;
 
-            if ($idxData === -1 || $idxValorLiquido === -1) return 0;
+            if ($idxValorLiquido === -1) return 0;
 
             // 4. LÊ AS VENDAS E CRUZA AS TAXAS
             while (($linha = fgetcsv($handle, 4000, $separador)) !== FALSE) {
@@ -90,8 +87,8 @@ class LeitorItauVendas implements LeitorInterface
                 }
 
                 // Limpa os valores monetários
-                $valorLiquido = (float) str_replace(['R$', '.', ','], ['', '', '.'], trim($linha[$idxValorLiquido] ?? '0'));
-                $valorBruto = (float) str_replace(['R$', '.', ','], ['', '', '.'], trim($linha[$idxValorBruto] ?? '0'));
+                $valorLiquido = (float) str_replace(['R$', ' ', '.', ','], ['', '', '', '.'], trim($linha[$idxValorLiquido] ?? '0'));
+                $valorBruto = (float) str_replace(['R$', ' ', '.', ','], ['', '', '', '.'], trim($linha[$idxValorBruto] ?? '0'));
 
                 if ($valorBruto <= 0) continue;
 
@@ -142,6 +139,11 @@ class LeitorItauVendas implements LeitorInterface
         }
 
         return $registrosProcessados;
+    }
+
+    private function normalizar($texto): string
+    {
+        return strtolower(\Illuminate\Support\Str::ascii(trim((string) $texto, " \t\r\n\"\u{FEFF}")));
     }
 
     private function formatarDataBrParaEua($data) {

@@ -142,6 +142,7 @@ class LeitorArquivoService
         $delimitador = ',';
         $tipoArquivoCielo = ''; // Para diferenciar Venda de Recebimento na Cielo
         $colunasBanco = null;
+        $colunasRede = null;
 
         foreach ($linhas as $linha) {
             $linha = trim($linha);
@@ -158,9 +159,10 @@ class LeitorArquivoService
                 continue;
             }
             // 2. Extrato REDE (Itaú Laranjinha)
-            if (str_contains(strtolower($linha), 'data do recebimento') && str_contains(strtolower($linha), 'taxa mdr')) {
+            //    Aceita o relatório de recebimentos ("data do recebimento") e o de vendas ("data da venda")
+            if ($origem !== 'banco' && $instituicao !== 'cielo' && ($mapa = $this->mapearCabecalhoRede($linha)) !== null) {
+                [$colunasRede, $delimitador] = $mapa;
                 $iniciouLeitura = true;
-                $delimitador = ',';
                 continue;
             }
             // 3. Extrato CIELO - RECEBIMENTOS
@@ -232,17 +234,22 @@ class LeitorArquivoService
             } elseif ($origem === 'maquininha_recebidos' || $origem === 'maquininha_vendas') {
 
                 if ($instituicao === 'rede' || $instituicao === 'itau') {
-                    // Estrutura REDE
-                    if (count($dados) < 23) continue;
+                    // Estrutura REDE (colunas mapeadas pelo nome do cabeçalho)
+                    if ($colunasRede === null) continue;
+                    $r = $colunasRede;
+                    $col = fn ($k, $padrao = '') => $r[$k] !== null ? trim($dados[$r[$k]] ?? $padrao) : $padrao;
 
-                    $dataStr = trim($dados[0]);
-                    $bandeira = strtoupper(trim($dados[21] ?? ''));
-                    $modalidade = strtoupper(trim($dados[20] ?? ''));
-                    $parcelas = trim($dados[22] ?? '1');
+                    $status = Str::lower(Str::ascii($col('status')));
+                    if (preg_match('/negad|cancelad|recusad|expirad|desfeit|estornad/', $status)) continue;
+
+                    $dataStr = substr($col('data'), 0, 10); // "01/10/2026 14:32" -> "01/10/2026"
+                    $bandeira = mb_strtoupper($col('bandeira'));
+                    $modalidade = mb_strtoupper($col('modalidade'));
+                    $parcelas = max(1, (int) $col('parcelas', '1'));
 
                     $descricao = "$bandeira $modalidade - PARC $parcelas";
-                    $valorBruto = $this->limparValorMoeda($dados[3] ?? '0');
-                    $valorLiquido = $this->limparValorMoeda($dados[7] ?? '0');
+                    $valorBruto = $this->limparValorMoeda($col('bruto', '0'));
+                    $valorLiquido = $r['liquido'] !== null ? $this->limparValorMoeda($col('liquido', '0')) : $valorBruto;
 
                 } elseif ($instituicao === 'cielo') {
                     // Estrutura CIELO (Dinâmica)
@@ -338,6 +345,45 @@ class LeitorArquivoService
         if ($m['credito'] === null && $m['debito'] === null && $m['valor'] === null) return null;
 
         return [$m, $delimitador];
+    }
+
+    /**
+     * Cabeçalho REDE/Itaú (recebimentos ou vendas) => [colunas, delimitador], ou null.
+     * Nomes normalizados sem acento: "valor líquido" casa com "liquido".
+     */
+    private function mapearCabecalhoRede(string $linha): ?array
+    {
+        $delimitador = substr_count($linha, ';') > substr_count($linha, ',') ? ';' : ',';
+        $cols = array_map(
+            fn ($c) => Str::lower(Str::ascii(trim($c, " \t\"\u{FEFF}"))),
+            str_getcsv(ltrim($linha, "\u{FEFF}"), $delimitador)
+        );
+
+        if (!str_contains($cols[0] ?? '', 'data do recebimento') && !str_contains($cols[0] ?? '', 'data da venda')) {
+            return null;
+        }
+
+        $acha = function (callable $teste) use ($cols) {
+            foreach ($cols as $i => $c) {
+                if ($teste($c)) return $i;
+            }
+            return null;
+        };
+        $valor = fn ($c) => str_contains($c, 'valor') && !str_contains($c, 'mdr') && !str_contains($c, 'taxa');
+
+        $m = [
+            'data' => 0,
+            'liquido' => $acha(fn ($c) => $valor($c) && str_contains($c, 'liquido')),
+            // "valor bruto da parcela original" (recebimentos) | "valor da venda original" (vendas)
+            'bruto' => $acha(fn ($c) => $valor($c) && !str_contains($c, 'liquido') && (str_contains($c, 'original') || str_contains($c, 'bruto')))
+                ?? $acha(fn ($c) => $valor($c) && !str_contains($c, 'liquido')),
+            'modalidade' => $acha(fn ($c) => str_contains($c, 'modalidade')),
+            'bandeira' => $acha(fn ($c) => str_contains($c, 'bandeira')),
+            'parcelas' => $acha(fn ($c) => str_contains($c, 'parcelas')),
+            'status' => $acha(fn ($c) => str_contains($c, 'status')),
+        ];
+
+        return $m['bruto'] !== null && $m['bandeira'] !== null ? [$m, $delimitador] : null;
     }
 
     private function limparValorMoeda($valorStr)
