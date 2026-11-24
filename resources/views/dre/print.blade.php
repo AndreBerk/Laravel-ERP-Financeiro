@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Relatorio_Financeiro_{{ $mesInput }}_{{ $ano }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css'])
     @php
         $fmt = fn($v) => number_format((float) $v, 2, ',', '.');
         $pct = fn($v) => number_format((float) $v, 1, ',', '.') . '%';

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Conciliacao;
 use App\Models\SaldoInicial;
 use Carbon\Carbon;
@@ -11,72 +10,48 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $mesAtual = Carbon::now()->month;
-        $anoAtual = Carbon::now()->year;
+        $hoje = Carbon::now();
+        $mesAtual = $hoje->month;
+        $anoAtual = $hoje->year;
 
-        // 1. DADOS BANCÁRIOS (O Dinheiro Real)
-        $entradas = Conciliacao::where('origem', 'banco')
-            ->where('tipo', 'entrada')
+        // 1. Movimento bancário do mês (uma consulta para entradas e saídas)
+        $banco = Conciliacao::where('origem', 'banco')
             ->where('mes_referencia', $mesAtual)
             ->where('ano_referencia', $anoAtual)
-            ->sum('valor');
+            ->selectRaw("COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END), 0) as entradas")
+            ->selectRaw("COALESCE(SUM(CASE WHEN tipo = 'saida' THEN valor ELSE 0 END), 0) as saidas")
+            ->first();
 
-        $saidas = Conciliacao::where('origem', 'banco')
-            ->where('tipo', 'saida')
-            ->where('mes_referencia', $mesAtual)
-            ->where('ano_referencia', $anoAtual)
-            ->sum('valor');
+        $receitasMes = (float) $banco->entradas;
+        $despesasMes = (float) $banco->saidas;
 
+        // 2. Saldo atual = saldos iniciais do mês + entradas − saídas
         $saldosIniciais = SaldoInicial::where('mes_referencia', $mesAtual)
             ->where('ano_referencia', $anoAtual)
-            ->sum('valor');
+            ->get(['valor']);
+        $temSaldoInicial = $saldosIniciais->isNotEmpty();
+        $saldoAtual = (float) $saldosIniciais->sum('valor') + $receitasMes - $despesasMes;
 
-        $saldoBancarioFinal = $saldosIniciais + $entradas - $saidas;
-        $lucroMes = $entradas - $saidas;
+        // 3. Maquininha a receber no ano = vendas − recebidos (valores brutos, como no DRE)
+        $maquininha = Conciliacao::where('ano_referencia', $anoAtual)
+            ->whereIn('origem', ['maquininha_vendas', 'maquininha_recebidos'])
+            ->selectRaw("COALESCE(SUM(CASE WHEN origem = 'maquininha_vendas' THEN COALESCE(valor_bruto, valor) ELSE 0 END), 0) as vendas")
+            ->selectRaw("COALESCE(SUM(CASE WHEN origem = 'maquininha_recebidos' THEN COALESCE(valor_bruto, valor) ELSE 0 END), 0) as recebidos")
+            ->first();
+        $aReceberMaquininha = max(0.0, (float) $maquininha->vendas - (float) $maquininha->recebidos);
 
-        // 2. LÓGICA DO SEMÁFORO INTELIGENTE
-        if ($entradas == 0 && $saidas == 0) {
-            // Sem movimento no mês
-            $semaforo = [
-                'cor_fundo' => 'bg-gray-500',
-                'cor_icone' => 'bg-gray-400',
-                'titulo' => 'Status: Aguardando Movimentação',
-                'mensagem' => 'Ainda não há receitas ou despesas registradas para este mês.',
-                'icone' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
-            ];
-        } elseif ($lucroMes >= 0) {
-            // Lucro (Verde)
-            $semaforo = [
-                'cor_fundo' => 'bg-green-500',
-                'cor_icone' => 'bg-green-400',
-                'titulo' => 'Status: Lucrativo',
-                'mensagem' => 'As receitas estão superando as despesas. O caixa está saudável!',
-                'icone' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>'
-            ];
-        } else {
-            // Prejuízo (Vermelho)
-            $semaforo = [
-                'cor_fundo' => 'bg-red-500',
-                'cor_icone' => 'bg-red-400',
-                'titulo' => 'Status: Alerta (Déficit)',
-                'mensagem' => 'Atenção! As despesas deste mês estão maiores que as receitas.',
-                'icone' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"></path>'
-            ];
-        }
+        // 4. Últimas 6 movimentações bancárias
+        $ultimasTransacoes = Conciliacao::where('origem', 'banco')
+            ->orderByDesc('data_transacao')
+            ->orderByDesc('id')
+            ->limit(6)
+            ->get(['id', 'data_transacao', 'descricao', 'tipo', 'valor', 'categoria', 'conta_instituicao']);
 
-        // 3. ESPAÇOS RESERVADOS PARA OUTROS MÓDULOS
-        // Para usar no futuro quando tiver a tabela de Caixa Físico e Despesas Fixas
-        $caixaFisico = 0;
-
-        // Verifica se a tabela/modelo Despesa existe para somar, senão manda 0
-        $despesasFixas = 0;
-        if (class_exists('App\Models\Despesa')) {
-            $despesasFixas = \App\Models\Despesa::sum('valor');
-        }
+        $resultadoMes = $receitasMes - $despesasMes;
 
         return view('dashboard', compact(
-            'saldoBancarioFinal', 'caixaFisico', 'despesasFixas',
-            'semaforo', 'lucroMes', 'mesAtual', 'anoAtual'
+            'saldoAtual', 'receitasMes', 'despesasMes', 'aReceberMaquininha', 'ultimasTransacoes',
+            'resultadoMes', 'temSaldoInicial', 'mesAtual', 'anoAtual'
         ));
     }
 }
